@@ -47,6 +47,24 @@ CREATE TABLE produksi_harian (
     CONSTRAINT chk_defect_not_exceed_aktual CHECK (jumlah_defect <= jumlah_aktual)
 );
 
+CREATE TABLE tipe_defect (
+    defect_id    SERIAL PRIMARY KEY,
+    nama_defect  VARCHAR(100) NOT NULL UNIQUE
+);
+
+CREATE TABLE detail_defect (
+    detail_id    SERIAL PRIMARY KEY,
+    produksi_id  INT NOT NULL REFERENCES produksi_harian(produksi_id) ON DELETE CASCADE,
+    defect_id    INT NOT NULL REFERENCES tipe_defect(defect_id),
+    jumlah_defect INT NOT NULL CHECK (jumlah_defect >= 0)
+);
+
+-- 3 jenis defect awal, nanti bisa nambah jika butuh
+INSERT INTO tipe_defect (nama_defect) VALUES 
+('Kecacatan Fisik'), 
+('Kesalahan Proses'), 
+('Kerusakan Material');
+
 CREATE TABLE sessions (
     session_id VARCHAR(255) PRIMARY KEY,
     user_id    INT       NOT NULL REFERENCES users(user_id),
