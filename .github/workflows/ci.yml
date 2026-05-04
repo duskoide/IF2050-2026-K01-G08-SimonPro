@@ -47,7 +47,13 @@ jobs:
 
       - name: Install xvfb
         # Install virtual framebuffer so PyQt wont crash in headless
-        run: sudo apt-get update && sudo apt-get install -y xvfb libxkbcommon-x11-0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-xinerama0 libxcb-xfixes0 x11-utils libegl1 libgl1 libxcb-cursor0
+        run: sudo apt-get update && sudo apt-get install -y xvfb libxkbcommon-x11-0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-xinerama0 libxcb-xfixes0 x11-utils libegl1 libgl1 libxcb-cursor0 postgresql-client
+
+      - name: Init Database Schema
+        env:
+          PGPASSWORD: password123
+        run: |
+          psql -h localhost -U admin -d simonpro_test -f database/init.sql
 
       - name: Run Pytest
         env:
