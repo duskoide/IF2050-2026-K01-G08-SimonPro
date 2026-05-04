@@ -17,7 +17,7 @@ CREATE TABLE kategori_produk (
 );
 
 CREATE TABLE produk (
-    kode_produk     VARCHAR(50)  PRIMARY KEY,
+    produk_id       SERIAL PRIMARY KEY,
     nama_produk     VARCHAR(255) NOT NULL,
     deskripsi_produk TEXT,
     satuan          VARCHAR(50),
@@ -28,7 +28,7 @@ CREATE TABLE produk (
 
 CREATE TABLE target_produksi (
     target_id       SERIAL PRIMARY KEY,
-    kode_produk     VARCHAR(50)   NOT NULL REFERENCES produk(kode_produk),
+    produk_id       INT           NOT NULL REFERENCES produk(produk_id),
     periode         periode_type  NOT NULL,
     tanggal_mulai   DATE          NOT NULL,
     tanggal_selesai DATE          NOT NULL,
@@ -39,7 +39,7 @@ CREATE TABLE target_produksi (
 CREATE TABLE produksi_harian (
     produksi_id      SERIAL PRIMARY KEY,
     tanggal          DATE         NOT NULL,
-    kode_produk      VARCHAR(50)  NOT NULL REFERENCES produk(kode_produk),
+    produk_id        INT          NOT NULL REFERENCES produk(produk_id),
     jumlah_aktual    INT          NOT NULL CHECK (jumlah_aktual >= 0),
     jumlah_defect    INT          NOT NULL CHECK (jumlah_defect >= 0),
     penanggung_jawab VARCHAR(255) NOT NULL,
