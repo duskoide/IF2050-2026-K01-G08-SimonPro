@@ -209,7 +209,20 @@ class LoginWindow(GradientBackground):
         card_layout.addWidget(password_label)
         card_layout.addSpacing(6)
         card_layout.addWidget(self.password_field)
-        card_layout.addSpacing(35)
+        card_layout.addSpacing(8)
+
+        self.error_label = QLabel("")
+        self.error_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.error_label.setStyleSheet("""
+            QLabel {
+                color: #C0392B;
+                font-size: 14px;
+                border: none;
+                background: transparent;
+            }
+        """)
+        card_layout.addWidget(self.error_label)
+        card_layout.addSpacing(12)
 
         # Tombol login
         login_btn = QPushButton("MASUK")
@@ -237,6 +250,12 @@ class LoginWindow(GradientBackground):
         card_layout.addWidget(login_btn)
 
         main_layout.addWidget(card, alignment=Qt.AlignmentFlag.AlignCenter)
+
+    def show_error(self, message: str):
+        self.error_label.setText(message)
+
+    def clear_error(self):
+        self.error_label.setText("")
 
     def handle_login(self):
         username = self.username_field.input.text()
