@@ -17,7 +17,7 @@ def main() -> int:
 
     # load font
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    font_path = os.path.join(base_dir, "fonts", "Inter-Regular.ttf")
+    font_path = os.path.join(base_dir, "font", "Inter_18pt-Regular.ttf")
     font_id = QFontDatabase.addApplicationFont(font_path)
     if font_id != -1:
         families = QFontDatabase.applicationFontFamilies(font_id)
