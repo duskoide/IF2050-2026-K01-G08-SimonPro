@@ -241,6 +241,7 @@ class LoginWindow(GradientBackground):
     def handle_login(self):
         username = self.username_field.input.text()
         password = self.password_field.input.text()
+        self.clear_error()
         self.controller.login(username, password)
 
     def mousePressEvent(self, event):
