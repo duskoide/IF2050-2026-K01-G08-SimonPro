@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import os
+import tempfile
 from typing import Any
 
 import psycopg2
@@ -18,18 +19,57 @@ logger = logging.getLogger(__name__)
 
 def _get_env_var(key: str, default: str) -> str:
     """Helper to read env vars with a fallback default."""
-    return os.environ.get(key, default)
+    value = os.environ.get(key, default)
+    # On Windows, environment variable values may come back as bytes
+    # with a non-UTF-8 encoding; force them to clean UTF-8 strings.
+    if isinstance(value, bytes):
+        value = value.decode("utf-8", errors="replace")
+    return value
+
+
+def _ensure_utf8(value: str) -> str:
+    """Round-trip a string through UTF-8 to guarantee validity.
+
+    Some Windows systems expose strings with non-UTF-8 bytes (e.g.
+    Windows-1252).  psycopg2 / libpq expects valid UTF-8 and will raise
+    ``UnicodeDecodeError`` otherwise.
+    """
+    try:
+        return value.encode("utf-8").decode("utf-8")
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        return value.encode("utf-8", errors="replace").decode("utf-8")
+
+
+def _safe_passfile() -> str:
+    """Return a path to an empty passfile so libpq skips the system pgpass.
+
+    On Windows, ``%APPDATA%\\postgresql\\pgpass.conf`` may be saved with a
+    non-UTF-8 encoding (e.g. Windows-1252) which causes a
+    ``UnicodeDecodeError`` inside ``psycopg2.connect()``.  Because the
+    application always supplies credentials explicitly, we can safely
+    redirect libpq to an empty temporary file and avoid reading the
+    potentially-broken system passfile altogether.
+    """
+    fd, path = tempfile.mkstemp(suffix=".pgpass")
+    os.close(fd)
+    # Write an empty file – libpq will find no matching entries and move on.
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write("")
+    return path
 
 
 # ---------------------------------------------------------------------------
 # Default credentials (Docker Compose local dev)
 # ---------------------------------------------------------------------------
 DEFAULT_DB_CONFIG = {
-    "host": _get_env_var("DB_HOST", "localhost"),
-    "user": _get_env_var("DB_USER", "postgres"),
-    "password": _get_env_var("DB_PASSWORD", "secret"),
-    "dbname": _get_env_var("DB_NAME", "simonpro"),
+    "host": _ensure_utf8(_get_env_var("DB_HOST", "localhost")),
+    "user": _ensure_utf8(_get_env_var("DB_USER", "postgres")),
+    "password": _ensure_utf8(_get_env_var("DB_PASSWORD", "secret")),
+    "dbname": _ensure_utf8(_get_env_var("DB_NAME", "simonpro")),
     "port": int(_get_env_var("DB_PORT", "5432")),
+    # Prevent libpq from reading a potentially non-UTF-8 pgpass.conf on
+    # Windows by pointing it at an empty passfile instead.
+    "passfile": _safe_passfile(),
 }
 
 
