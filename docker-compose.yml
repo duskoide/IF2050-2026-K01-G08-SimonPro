@@ -6,11 +6,13 @@ services:
       POSTGRES_PASSWORD: secret
       POSTGRES_DB: simonpro
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./database/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+      - ./database/dummy.sql:/docker-entrypoint-initdb.d/02-dummy.sql
     restart: unless-stopped
 
 volumes:
   pgdata:
+
