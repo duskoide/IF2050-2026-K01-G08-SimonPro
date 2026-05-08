@@ -257,6 +257,12 @@ class LoginWindow(GradientBackground):
     def clear_error(self):
         self.error_label.setText("")
 
+    def clear_fields(self):
+        """Clear username, password, and error message."""
+        self.username_field.input.clear()
+        self.password_field.input.clear()
+        self.clear_error()
+
     def handle_login(self):
         username = self.username_field.input.text()
         password = self.password_field.input.text()

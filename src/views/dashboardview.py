@@ -12,8 +12,10 @@ from PyQt6.QtGui import (
     QPainter, QLinearGradient, QColor,
     QBrush, QFont, QPen, QPainterPath, QPixmap
 )
-from PyQt6.QtCore import Qt, QSize, QPointF, QRectF
+from PyQt6.QtCore import Qt, QSize, QPointF, QRectF, pyqtSignal
 import qtawesome as qta
+
+from src.services.DashboardService import DashboardService
 
 # Background radial gradient
 class GradientBackground(QWidget):
@@ -82,17 +84,23 @@ class StatCard(Card):
         lbl_title = QLabel(title)
         lbl_title.setStyleSheet(f"color:{"#7AAACE"}; font-size:20px; border:none; background:transparent;")
 
-        lbl_value = QLabel(value)
-        lbl_value.setStyleSheet(f"color:{"#355872"}; font-size:24px; font-weight:700; border:none; background:transparent;")
+        self.lbl_value = QLabel(value)
+        self.lbl_value.setStyleSheet(f"color:{"#355872"}; font-size:24px; font-weight:700; border:none; background:transparent;")
 
-        lbl_sub = QLabel(sub)
-        lbl_sub.setStyleSheet(f"color:{"#7AAACE"}; font-size:18px; border:none; background:transparent;")
+        self.lbl_sub = QLabel(sub)
+        self.lbl_sub.setStyleSheet(f"color:{"#7AAACE"}; font-size:18px; border:none; background:transparent;")
 
         layout.addLayout(top)
         layout.addSpacing(1)
         layout.addWidget(lbl_title)
-        layout.addWidget(lbl_value)
-        layout.addWidget(lbl_sub)
+        layout.addWidget(self.lbl_value)
+        layout.addWidget(self.lbl_sub)
+
+    def set_value(self, value):
+        self.lbl_value.setText(value)
+
+    def set_sub(self, sub):
+        self.lbl_sub.setText(sub)
 
 
 # Bar Chart
@@ -190,6 +198,11 @@ class LineChart(QWidget):
         self.values = [120, 115, 145, 85]
         self.setMinimumHeight(380)
 
+    def set_data(self, labels, values):
+        self.labels = labels
+        self.values = values
+        self.update()
+
     def paintEvent(self, event):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -281,6 +294,8 @@ class Sidebar(QFrame):
         ("mdi.file-document-outline", "Laporan", False),
     ]
 
+    logout_clicked = pyqtSignal()
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setFixedWidth(230)
@@ -321,7 +336,13 @@ class Sidebar(QFrame):
 
         lay.addStretch()
 
-        lay.addWidget(self._menu_btn("mdi.logout", "Keluar", False))
+        # Logout button — clickable
+        logout_btn = self._menu_btn("mdi.logout", "Keluar", False)
+        logout_btn.mousePressEvent = lambda event: (
+            self.logout_clicked.emit()
+            if event.button() == Qt.MouseButton.LeftButton else None
+        )
+        lay.addWidget(logout_btn)
         lay.addSpacing(16)
 
     def _menu_btn(self, icon_name, label, active):
@@ -378,15 +399,17 @@ class Sidebar(QFrame):
 
 #Topbar
 class Topbar(QFrame):
-    def __init__(self, parent=None):
+    def __init__(self, user=None, parent=None):
         super().__init__(parent)
+        self.user = user
         self.setFixedHeight(70)
         self.setStyleSheet("background:transparent; border:none;")
 
         lay = QHBoxLayout(self)
         lay.setContentsMargins(28, 25, 28, 0)
 
-        title = QLabel("Selamat Datang, Admin!")
+        name = user.username if user else "Admin"
+        title = QLabel(f"Selamat Datang, {name}!")
         title.setStyleSheet(f"color:{"#355872"}; font-size:36px; font-weight:700; border:none; background:transparent;")
         lay.addWidget(title)
         lay.addStretch()
@@ -396,9 +419,9 @@ class Topbar(QFrame):
         user_ico.setPixmap(qta.icon("fa5s.user-circle", color="#355872").pixmap(50, 50))
         user_ico.setStyleSheet("border:none; background:transparent;")
 
-        name_lbl = QLabel("Yumna Fathonah")
+        name_lbl = QLabel(name)
         name_lbl.setStyleSheet(f"color:{"#355872"}; font-size:18px; font-weight:700; border:none; background:transparent;")
-        role_lbl = QLabel("Admin")
+        role_lbl = QLabel(user.role if user else "Admin")
         role_lbl.setStyleSheet(f"color:{"#355872"}; font-size:14px; font-weight:400; border:none; background:transparent;")
 
         info_col = QFrame()
@@ -416,13 +439,18 @@ class Topbar(QFrame):
 
 # Dashboard Window
 class DashboardWindow(GradientBackground):
-    def __init__(self):
+    def __init__(self, user=None, session=None, on_logout=None):
         super().__init__()
+        self.user = user
+        self.session = session
+        self.on_logout = on_logout
+        self.dashboard_service = DashboardService()
         self.setWindowTitle("SiMonPro - Dashboard")
         self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self._drag_pos = None
         self.init_ui()
+        self.load_data()
 
     def init_ui(self):
         root = QHBoxLayout(self)
@@ -430,7 +458,10 @@ class DashboardWindow(GradientBackground):
         root.setSpacing(0)
 
         # Sidebar
-        root.addWidget(Sidebar())
+        self.sidebar = Sidebar()
+        if self.on_logout:
+            self.sidebar.logout_clicked.connect(self.on_logout)
+        root.addWidget(self.sidebar)
 
         # Konten
         content = QWidget()
@@ -438,7 +469,8 @@ class DashboardWindow(GradientBackground):
         c_lay = QVBoxLayout(content)
         c_lay.setContentsMargins(0, 0, 0, 0)
         c_lay.setSpacing(0)
-        c_lay.addWidget(Topbar())
+        self.topbar = Topbar(user=self.user)
+        c_lay.addWidget(self.topbar)
 
         # Scroll
         scroll = QScrollArea()
@@ -457,19 +489,24 @@ class DashboardWindow(GradientBackground):
         sub.setStyleSheet(f"color:{"#7AAACE"}; font-size:18px; border:none; background:transparent;")
         inner_lay.addWidget(sub)
 
-        # Stat cards
-        stat_row = QHBoxLayout()
-        stat_row.setSpacing(14)
-        stat_row.addWidget(StatCard("mdi.cube-outline",         "Total Produksi",    "42,400", "+12% dari bulan lalu"))
-        stat_row.addWidget(StatCard("mdi.trending-up",          "Pencapaian Target", "97.4%",  "Target: 43,500"))
-        stat_row.addWidget(StatCard("mdi.alert-circle-outline", "Tingkat Defect",    "2.1%",   "-0.5% dari bulan lalu"))
-        stat_row.addWidget(StatCard("mdi.package-variant",      "Jumlah Produk",     "12",     "Dalam produksi"))
-        inner_lay.addLayout(stat_row)
+        # Stat cards — simpan referensi agar bisa di-update
+        self.stat_row = QHBoxLayout()
+        self.stat_row.setSpacing(14)
+        self.card_total_produksi = StatCard("mdi.cube-outline",         "Total Produksi",    "0", "-")
+        self.card_pencapaian = StatCard("mdi.trending-up",          "Pencapaian Target", "0%",  "-")
+        self.card_defect = StatCard("mdi.alert-circle-outline", "Tingkat Defect",    "0%",   "-")
+        self.card_jumlah_produk = StatCard("mdi.package-variant",      "Jumlah Produk",     "0",     "-")
+        self.stat_row.addWidget(self.card_total_produksi)
+        self.stat_row.addWidget(self.card_pencapaian)
+        self.stat_row.addWidget(self.card_defect)
+        self.stat_row.addWidget(self.card_jumlah_produk)
+        inner_lay.addLayout(self.stat_row)
 
-        # Charts
+        # Charts — simpan referensi agar bisa di-update
         chart_row = QHBoxLayout()
         chart_row.setSpacing(14)
 
+        self.bar_chart = BarChart()
         bar_card = Card()
         bar_lay = QVBoxLayout(bar_card)
         bar_lay.setContentsMargins(18, 16, 18, 16)
@@ -477,8 +514,9 @@ class DashboardWindow(GradientBackground):
         bar_title = QLabel("Pencapaian Target")
         bar_title.setStyleSheet(f"color:{"#355872"}; font-size:18px; font-weight:700; border:none; background:transparent;")
         bar_lay.addWidget(bar_title, alignment=Qt.AlignmentFlag.AlignHCenter)
-        bar_lay.addWidget(BarChart())
+        bar_lay.addWidget(self.bar_chart)
 
+        self.line_chart = LineChart()
         line_card = Card()
         line_lay = QVBoxLayout(line_card)
         line_lay.setContentsMargins(18, 16, 18, 16)
@@ -486,7 +524,7 @@ class DashboardWindow(GradientBackground):
         line_title = QLabel("Tingkat Defect")
         line_title.setStyleSheet(f"color:{"#355872"}; font-size:18px; font-weight:700; border:none; background:transparent;")
         line_lay.addWidget(line_title, alignment=Qt.AlignmentFlag.AlignHCenter)
-        line_lay.addWidget(LineChart())
+        line_lay.addWidget(self.line_chart)
 
         chart_row.addWidget(bar_card)
         chart_row.addWidget(line_card)
@@ -496,6 +534,41 @@ class DashboardWindow(GradientBackground):
         scroll.setWidget(inner)
         c_lay.addWidget(scroll)
         root.addWidget(content)
+
+    def load_data(self):
+        try:
+            summary = self.dashboard_service.get_summary_data()
+            charts = self.dashboard_service.get_chart_data()
+
+            # Update stat cards
+            total = summary["total_produksi"]
+            self.card_total_produksi.set_value(f"{total:,}")
+            self.card_total_produksi.set_sub("Total akumulasi")
+
+            pencapaian, target_total = summary["pencapaian_target"]
+            self.card_pencapaian.set_value(f"{pencapaian}%")
+            self.card_pencapaian.set_sub(f"Target: {target_total:,}")
+
+            defect = summary["tingkat_defect"]
+            self.card_defect.set_value(f"{defect}%")
+            self.card_defect.set_sub("Dari total produksi")
+
+            jumlah = summary["jumlah_produk"]
+            self.card_jumlah_produk.set_value(str(jumlah))
+            self.card_jumlah_produk.set_sub("Dalam produksi")
+
+            # Update charts
+            self.bar_chart.set_data(
+                charts["labels"],
+                charts["target"],
+                charts["actual"]
+            )
+            self.line_chart.set_data(
+                charts["labels"],
+                charts["defect"]
+            )
+        except Exception as e:
+            print(f"[Dashboard] Gagal memuat data: {e}")
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
