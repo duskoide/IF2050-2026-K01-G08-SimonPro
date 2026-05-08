@@ -66,7 +66,7 @@ DEFAULT_DB_CONFIG = {
     "user": _ensure_utf8(_get_env_var("DB_USER", "postgres")),
     "password": _ensure_utf8(_get_env_var("DB_PASSWORD", "secret")),
     "dbname": _ensure_utf8(_get_env_var("DB_NAME", "simonpro")),
-    "port": int(_get_env_var("DB_PORT", "5432")),
+    "port": int(_get_env_var("DB_PORT", "5433")),
     # Prevent libpq from reading a potentially non-UTF-8 pgpass.conf on
     # Windows by pointing it at an empty passfile instead.
     "passfile": _safe_passfile(),
