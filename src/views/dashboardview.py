@@ -1,21 +1,18 @@
-import sys
 import os
+import sys
 
 os.environ['QT_API'] = 'pyqt6'
 
-from PyQt6.QtWidgets import (
-    QApplication, QWidget, QLabel, QPushButton,
-    QVBoxLayout, QHBoxLayout, QFrame, QSizePolicy,
-    QScrollArea, QGraphicsDropShadowEffect
-)
-from PyQt6.QtGui import (
-    QPainter, QLinearGradient, QColor,
-    QBrush, QFont, QPen, QPainterPath, QPixmap
-)
-from PyQt6.QtCore import Qt, QSize, QPointF, QRectF, pyqtSignal
 import qtawesome as qta
+from PyQt6.QtCore import QPointF, QRectF, QSize, Qt, pyqtSignal
+from PyQt6.QtGui import (QBrush, QColor, QFont, QLinearGradient, QPainter,
+                         QPainterPath, QPen, QPixmap)
+from PyQt6.QtWidgets import (QApplication, QFrame, QGraphicsDropShadowEffect,
+                             QHBoxLayout, QLabel, QPushButton, QScrollArea,
+                             QSizePolicy, QVBoxLayout, QWidget)
 
 from src.services.DashboardService import DashboardService
+
 
 # Background radial gradient
 class GradientBackground(QWidget):
@@ -69,7 +66,7 @@ class StatCard(Card):
 
         icon_bg = QFrame()
         icon_bg.setFixedSize(50, 50)
-        icon_bg.setStyleSheet(f"background:{"#9CD5FF"}; border-radius:11px; border:none;")
+        icon_bg.setStyleSheet("background:#9CD5FF; border-radius:11px; border:none;")
         icon_inner = QHBoxLayout(icon_bg)
         icon_inner.setContentsMargins(0, 0, 0, 0)
         ico = QLabel()
@@ -82,13 +79,13 @@ class StatCard(Card):
         top.addStretch()
 
         lbl_title = QLabel(title)
-        lbl_title.setStyleSheet(f"color:{"#7AAACE"}; font-size:20px; border:none; background:transparent;")
+        lbl_title.setStyleSheet("color:#7AAACE; font-size:20px; border:none; background:transparent;")
 
         self.lbl_value = QLabel(value)
-        self.lbl_value.setStyleSheet(f"color:{"#355872"}; font-size:24px; font-weight:700; border:none; background:transparent;")
+        self.lbl_value.setStyleSheet("color:#355872; font-size:24px; font-weight:700; border:none; background:transparent;")
 
         self.lbl_sub = QLabel(sub)
-        self.lbl_sub.setStyleSheet(f"color:{"#7AAACE"}; font-size:18px; border:none; background:transparent;")
+        self.lbl_sub.setStyleSheet("color:#7AAACE; font-size:18px; border:none; background:transparent;")
 
         layout.addLayout(top)
         layout.addSpacing(1)
@@ -299,7 +296,7 @@ class Sidebar(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setFixedWidth(230)
-        self.setStyleSheet(f"QFrame {{ background:{"#355872"}; border:none; }}")
+        self.setStyleSheet("QFrame { background:#355872; border:none; }")
 
         lay = QVBoxLayout(self)
         lay.setContentsMargins(18, 10, 18, 10)
@@ -318,7 +315,7 @@ class Sidebar(QFrame):
         logo_ico.setAlignment(Qt.AlignmentFlag.AlignCenter)
         logo_ico.setMinimumHeight(50)
         logo_txt = QLabel("SiMonPro")
-        logo_txt.setStyleSheet(f"color:{"#F7F8F0"}; font-size:24px; font-weight:700; border:none; background:transparent;")
+        logo_txt.setStyleSheet("color:#F7F8F0; font-size:24px; font-weight:700; border:none; background:transparent;")
         logo_lay.addWidget(logo_ico)
         logo_lay.addWidget(logo_txt)
         logo_lay.addStretch()
@@ -410,7 +407,7 @@ class Topbar(QFrame):
 
         name = user.username if user else "Admin"
         title = QLabel(f"Selamat Datang, {name}!")
-        title.setStyleSheet(f"color:{"#355872"}; font-size:36px; font-weight:700; border:none; background:transparent;")
+        title.setStyleSheet("color:#355872; font-size:36px; font-weight:700; border:none; background:transparent;")
         lay.addWidget(title)
         lay.addStretch()
 
@@ -420,9 +417,9 @@ class Topbar(QFrame):
         user_ico.setStyleSheet("border:none; background:transparent;")
 
         name_lbl = QLabel(name)
-        name_lbl.setStyleSheet(f"color:{"#355872"}; font-size:18px; font-weight:700; border:none; background:transparent;")
+        name_lbl.setStyleSheet("color:#355872; font-size:18px; font-weight:700; border:none; background:transparent;")
         role_lbl = QLabel(user.role if user else "Admin")
-        role_lbl.setStyleSheet(f"color:{"#355872"}; font-size:14px; font-weight:400; border:none; background:transparent;")
+        role_lbl.setStyleSheet("color:#355872; font-size:14px; font-weight:400; border:none; background:transparent;")
 
         info_col = QFrame()
         info_col.setStyleSheet("background:transparent; border:none;")
@@ -486,7 +483,7 @@ class DashboardWindow(GradientBackground):
 
         # Sub-judul
         sub = QLabel("Ringkasan Performa Produksi")
-        sub.setStyleSheet(f"color:{"#7AAACE"}; font-size:18px; border:none; background:transparent;")
+        sub.setStyleSheet("color:#7AAACE; font-size:18px; border:none; background:transparent;")
         inner_lay.addWidget(sub)
 
         # Stat cards — simpan referensi agar bisa di-update
@@ -512,7 +509,7 @@ class DashboardWindow(GradientBackground):
         bar_lay.setContentsMargins(18, 16, 18, 16)
         bar_lay.setSpacing(10)
         bar_title = QLabel("Pencapaian Target")
-        bar_title.setStyleSheet(f"color:{"#355872"}; font-size:18px; font-weight:700; border:none; background:transparent;")
+        bar_title.setStyleSheet("color:#355872; font-size:18px; font-weight:700; border:none; background:transparent;")
         bar_lay.addWidget(bar_title, alignment=Qt.AlignmentFlag.AlignHCenter)
         bar_lay.addWidget(self.bar_chart)
 
@@ -522,7 +519,7 @@ class DashboardWindow(GradientBackground):
         line_lay.setContentsMargins(18, 16, 18, 16)
         line_lay.setSpacing(10)
         line_title = QLabel("Tingkat Defect")
-        line_title.setStyleSheet(f"color:{"#355872"}; font-size:18px; font-weight:700; border:none; background:transparent;")
+        line_title.setStyleSheet("color:#355872; font-size:18px; font-weight:700; border:none; background:transparent;")
         line_lay.addWidget(line_title, alignment=Qt.AlignmentFlag.AlignHCenter)
         line_lay.addWidget(self.line_chart)
 
