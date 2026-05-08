@@ -1,7 +1,7 @@
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from database.db_connection import test_connection
+from database.db_connection import get_db
 from services.UserDataLocal import UserDataLocal
 from models.Session import Session
 
@@ -34,9 +34,17 @@ class AuthService:
         return (self.current_session is not None
                 and self.current_session.is_active)
 
+    def get_current_user(self):
+        if self.current_session:
+            return self.current_session.logged_in_user
+        return None
+
+    def get_current_session(self):
+        return self.current_session
+
     def _save_session(self):
-        conn = test_connection()
-        cur  = conn.cursor()
+        db = get_db()
+        cur = db.connection.cursor()
         cur.execute(
             "INSERT INTO sessions (session_id, user_id, login_time, is_active) VALUES (%s, %s, %s, %s)",
             (self.current_session.session_id,
@@ -44,17 +52,15 @@ class AuthService:
              self.current_session.login_time,
              True)
         )
-        conn.commit()
+        db.connection.commit()
         cur.close()
-        conn.close()
 
     def _end_session(self, session_id):
-        conn = test_connection()
-        cur  = conn.cursor()
+        db = get_db()
+        cur = db.connection.cursor()
         cur.execute(
             "UPDATE sessions SET is_active = FALSE WHERE session_id = %s",
             (session_id,)
         )
-        conn.commit()
+        db.connection.commit()
         cur.close()
-        conn.close()

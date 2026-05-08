@@ -1,17 +1,13 @@
-import sys
 import os
+import sys
 
 os.environ['QT_API'] = 'pyqt6'
 
-from PyQt6.QtWidgets import (
-    QApplication, QWidget, QLabel, QLineEdit,
-    QPushButton, QVBoxLayout, QHBoxLayout, QFrame
-)
-from PyQt6.QtGui import (
-    QPainter, QRadialGradient, QColor, QBrush, QPixmap
-)
-from PyQt6.QtCore import Qt, QSize
 import qtawesome as qta
+from PyQt6.QtCore import QSize, Qt
+from PyQt6.QtGui import QBrush, QColor, QPainter, QPixmap, QRadialGradient
+from PyQt6.QtWidgets import (QApplication, QFrame, QHBoxLayout, QLabel,
+                             QLineEdit, QPushButton, QVBoxLayout, QWidget)
 
 
 class GradientBackground(QWidget):
@@ -256,6 +252,12 @@ class LoginWindow(GradientBackground):
 
     def clear_error(self):
         self.error_label.setText("")
+
+    def clear_fields(self):
+        """Clear username, password, and error message."""
+        self.username_field.input.clear()
+        self.password_field.input.clear()
+        self.clear_error()
 
     def handle_login(self):
         username = self.username_field.input.text()
