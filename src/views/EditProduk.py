@@ -21,6 +21,8 @@ from PyQt6.QtGui import (
 
 import qtawesome as qta
 
+from src.models.Produk import Produk
+
 
 # ── Gradient Dialog ────────────────────────────────────────────────────────────
 class GradientDialog(QDialog):
@@ -81,8 +83,10 @@ class EditProdukDialog(GradientDialog):
 
         self.move(x, y)
 
-    def __init__(self, parent=None):
+    def __init__(self, produk=None, parent=None):
         super().__init__(parent)
+
+        self.produk = produk
 
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint
@@ -95,6 +99,7 @@ class EditProdukDialog(GradientDialog):
         self.setFixedSize(650, 610)
 
         self._init_ui()
+        self._populate_data()
         self.center_dialog()
 
     # ── Helper Label ────────────────────────────────────────────────────────
@@ -548,6 +553,31 @@ class EditProdukDialog(GradientDialog):
         layout.addLayout(button_layout)
 
         main_layout.addWidget(card)
+
+    # ── Populate Data ─────────────────────────────────────────────────────────
+    def _populate_data(self):
+        if self.produk is None:
+            return
+
+        # Kode Produk
+        kode = f"PRD-{self.produk.produk_id:03d}"
+        self.input_kode.setText(kode)
+
+        # Nama Produk
+        self.input_nama.setText(self.produk.nama_produk or "")
+
+        # Kategori
+        kategori = self.produk.nama_kategori
+        index = self.combo_kategori.findText(kategori)
+        if index >= 0:
+            self.combo_kategori.setCurrentIndex(index)
+
+        # Deskripsi
+        self.input_deskripsi.setText(self.produk.deskripsi_produk or "")
+
+        # Foto (placeholder saat ini)
+        if self.produk.gambar:
+            self.label_foto.setText(self.produk.gambar)
 
 
 # ── Entry Point ────────────────────────────────────────────────────────────────

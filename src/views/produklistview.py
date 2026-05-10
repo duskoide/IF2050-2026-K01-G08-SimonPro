@@ -26,6 +26,7 @@ from PyQt6.QtWidgets import (
 from src.controllers.KategoriController import KategoriController
 from src.views.KategoriView import EditKategoriDialog
 from src.views.TambahProduk import TambahProdukDialog
+from src.views.EditProduk import EditProdukDialog
 from src.database.db_connection import get_db
 from src.services.ProdukService import ProdukService
 from src.models.Produk import Produk
@@ -73,8 +74,9 @@ class ImagePlaceholder(QFrame):
 
 
 class ProductCard(Card):
-    def __init__(self, name, code, category, description, parent=None):
+    def __init__(self, produk, parent=None, on_edit_clicked=None):
         super().__init__(parent)
+        self.produk = produk
         self.setFixedWidth(280)
         self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
 
@@ -87,12 +89,13 @@ class ProductCard(Card):
         name_row = QHBoxLayout()
         name_row.setSpacing(6)
 
-        lbl_name = QLabel(name)
+        lbl_name = QLabel(produk.nama_produk)
         lbl_name.setStyleSheet(
             "color: #355872; font-size: 18px; font-weight: 700; border: none; background: transparent;"
         )
         lbl_name.setWordWrap(False)
 
+        code = f"PRD-{produk.produk_id:03d}"
         lbl_code = QLabel(code)
         lbl_code.setStyleSheet(
             "color: #355872; font-size: 12px; font-weight: 600; "
@@ -106,13 +109,14 @@ class ProductCard(Card):
         name_row.addWidget(lbl_code)
         lay.addLayout(name_row)
 
-        lbl_cat = QLabel(category)
+        lbl_cat = QLabel(produk.nama_kategori)
         lbl_cat.setStyleSheet(
             "color: #355872; font-size: 15px; border: none; background: transparent; font-weight: 600;"
         )
         lay.addWidget(lbl_cat)
 
-        lbl_desc = QLabel(description)
+        desc = produk.deskripsi_produk or "Tidak ada deskripsi."
+        lbl_desc = QLabel(desc)
         lbl_desc.setStyleSheet(
             "color: #355872; font-size: 12px; border: none; background: transparent; font-weight: 500;"
         )
@@ -150,6 +154,8 @@ class ProductCard(Card):
         shadow.setOffset(0, 4)
         shadow.setColor(QColor(53, 88, 114, 80))
         btn_edit.setGraphicsEffect(shadow)
+        if on_edit_clicked:
+            btn_edit.clicked.connect(lambda checked, p=produk: on_edit_clicked(p))
         lay.addWidget(btn_edit, alignment=Qt.AlignmentFlag.AlignHCenter)
 
 
@@ -517,13 +523,14 @@ class FilterBar(QFrame):
 
 
 class ProductGrid(QWidget):
-    def __init__(self, products=None, parent=None):
+    def __init__(self, products=None, parent=None, on_edit_clicked=None):
         super().__init__(parent)
         self.setStyleSheet("background: transparent;")
         self._grid = QGridLayout(self)
         self._grid.setContentsMargins(0, 0, 0, 0)
         self._grid.setSpacing(16)
         self.cols = 4
+        self._on_edit_clicked = on_edit_clicked
         if products:
             self.set_products(products)
 
@@ -536,13 +543,10 @@ class ProductGrid(QWidget):
 
         for idx, produk in enumerate(products):
             row, col = divmod(idx, self.cols)
-            code = f"PRD-{produk.produk_id:03d}"
-            desc = produk.deskripsi_produk or "Tidak ada deskripsi."
             card = ProductCard(
-                produk.nama_produk,
-                code,
-                produk.nama_kategori,
-                desc,
+                produk,
+                parent=self,
+                on_edit_clicked=self._on_edit_clicked,
             )
             self._grid.addWidget(card, row, col)
 
@@ -634,7 +638,7 @@ class ProdukWindow(GradientBackground):
         inner_lay.setContentsMargins(28, 12, 28, 28)
         inner_lay.setSpacing(8)
 
-        self.product_grid = ProductGrid()
+        self.product_grid = ProductGrid(on_edit_clicked=self._on_edit_produk)
         inner_lay.addWidget(self.product_grid)
         inner_lay.addStretch()
 
@@ -672,6 +676,16 @@ class ProdukWindow(GradientBackground):
             from PyQt6.QtWidgets import QMessageBox
 
             QMessageBox.critical(self, "Error", f"Gagal membuka dialog tambah produk:\n{e}")
+
+    def _on_edit_produk(self, produk):
+        try:
+            dialog = EditProdukDialog(produk=produk, parent=self)
+            dialog.exec()
+            self.load_produk()
+        except Exception as e:
+            from PyQt6.QtWidgets import QMessageBox
+
+            QMessageBox.critical(self, "Error", f"Gagal membuka dialog edit produk:\n{e}")
 
     def navigate_to(self, label):
         # Saat embedded, delegasikan ke DashboardWindow via parent
