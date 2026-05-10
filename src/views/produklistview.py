@@ -23,8 +23,11 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from src.views.KategoriView import EditKategoriDialog
 from src.controllers.KategoriController import KategoriController
+from src.views.KategoriView import EditKategoriDialog
+from src.database.db_connection import get_db
+from src.services.ProdukService import ProdukService
+from src.models.Produk import Produk
 
 
 class GradientBackground(QWidget):
@@ -250,7 +253,9 @@ class Sidebar(QFrame):
 
     def set_active(self, label):
         for lbl, btn in self._menu_btns.items():
-            icon_name = next((i for i, l in self.MENU if l == lbl), None)
+            icon_name = next(
+                (i for i, label_text in self.MENU if label_text == lbl), None
+            )
             if lbl == label:
                 btn.setStyleSheet(self.ACTIVE_STYLE)
                 ico_color = "#355872"
@@ -508,75 +513,45 @@ class FilterBar(QFrame):
         lay.addStretch()
 
 
-PRODUCTS = [
-    (
-        "Kaos Polos",
-        "PRD-001",
-        "Atasan",
-        "Kaos polos berbahan katun combed 30s yang lembut, adem, dan mampu menyerap keringat dengan baik.",
-    ),
-    (
-        "Hoodie",
-        "PRD-002",
-        "Atasan",
-        "Hoodie dengan bahan fleece dan desain streetwear modern yang mengikuti tren anak generasi sekarang.",
-    ),
-    (
-        "Kemeja",
-        "PRD-003",
-        "Atasan",
-        "Kemeja flanel dengan motif kotak-kotak klasik yang tidak lekang oleh waktu. Tebal dan nyaman dipakai.",
-    ),
-    (
-        "Dress Floral",
-        "PRD-004",
-        "Dress",
-        "Dress wanita dengan motif floral yang memberikan kesan segar dan feminin. Menggunakan bahan ringan dan breathable.",
-    ),
-    (
-        "Rok Plisket",
-        "PRD-005",
-        "Bawahan",
-        "Rok plisket dengan desain elegan dan bahan yang jatuh dengan indah. Cocok untuk acara formal maupun kasual.",
-    ),
-    (
-        "Celana Jeans",
-        "PRD-006",
-        "Bawahan",
-        "Celana jeans model slim fit yang mengikuti bentuk kaki namun tetap nyaman karena bahan stretch yang fleksibel.",
-    ),
-    (
-        "Jaket Dilan",
-        "PRD-007",
-        "Outerwear",
-        "Jaket denim dengan desain klasik yang selalu relevan sepanjang waktu. Dibuat dari bahan denim berkualitas tinggi.",
-    ),
-    (
-        "Blouse",
-        "PRD-008",
-        "Atasan",
-        "Blouse wanita dengan desain sederhana namun elegan, cocok untuk digunakan di lingkungan kerja.",
-    ),
-]
-
-
 class ProductGrid(QWidget):
-    def __init__(self, parent=None):
+    def __init__(self, products=None, parent=None):
         super().__init__(parent)
         self.setStyleSheet("background: transparent;")
+        self._grid = QGridLayout(self)
+        self._grid.setContentsMargins(0, 0, 0, 0)
+        self._grid.setSpacing(16)
+        self.cols = 4
+        if products:
+            self.set_products(products)
 
-        grid = QGridLayout(self)
-        grid.setContentsMargins(0, 0, 0, 0)
-        grid.setSpacing(16)
+    def set_products(self, products: list[Produk]):
+        # Bersihkan widget lama
+        while self._grid.count():
+            item = self._grid.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
 
-        cols = 4
-        for idx, (name, code, cat, desc) in enumerate(PRODUCTS):
-            row, col = divmod(idx, cols)
-            grid.addWidget(ProductCard(name, code, cat, desc), row, col)
+        for idx, produk in enumerate(products):
+            row, col = divmod(idx, self.cols)
+            code = f"PRD-{produk.produk_id:03d}"
+            desc = produk.deskripsi_produk or "Tidak ada deskripsi."
+            card = ProductCard(
+                produk.nama_produk,
+                code,
+                produk.nama_kategori,
+                desc,
+            )
+            self._grid.addWidget(card, row, col)
 
-        for col in range(len(PRODUCTS) % cols, cols):
-            if len(PRODUCTS) % cols != 0:
-                grid.setColumnStretch(col, 1)
+        # Atur stretch pada kolom kosong di baris terakhir
+        remainder = len(products) % self.cols
+        if remainder != 0:
+            for col in range(remainder, self.cols):
+                self._grid.setColumnStretch(col, 1)
+        else:
+            # Hapus stretch yang mungkin ada sebelumnya
+            for col in range(self.cols):
+                self._grid.setColumnStretch(col, 0)
 
 
 class ProdukWindow(GradientBackground):
@@ -594,12 +569,24 @@ class ProdukWindow(GradientBackground):
         self.embedded = embedded
         self._drag_pos = None
 
+        # Inisialisasi service untuk mengambil data produk dari database
+        db = get_db()
+        self._produk_service = ProdukService(db)
+
         if not embedded:
             self.setWindowTitle("SiMonPro - Kelola Data Produk")
             self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
             self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 
         self.init_ui()
+        self.load_produk()
+
+    def load_produk(self):
+        try:
+            produk_list = self._produk_service.get_daftar_produk()
+            self.product_grid.set_products(produk_list)
+        except Exception as e:
+            print(f"[ProdukWindow] Gagal memuat data produk: {e}")
 
     def init_ui(self):
         root = QHBoxLayout(self)
@@ -643,7 +630,8 @@ class ProdukWindow(GradientBackground):
         inner_lay.setContentsMargins(28, 12, 28, 28)
         inner_lay.setSpacing(8)
 
-        inner_lay.addWidget(ProductGrid())
+        self.product_grid = ProductGrid()
+        inner_lay.addWidget(self.product_grid)
         inner_lay.addStretch()
 
         scroll.setWidget(inner)
@@ -654,14 +642,21 @@ class ProdukWindow(GradientBackground):
         if not self.session:
             return
 
-        dialog = EditKategoriDialog(parent=self)
-        controller = KategoriController(self.session)
-        controller.set_viewer(dialog)
+        try:
+            dialog = EditKategoriDialog(parent=self)
+            controller = KategoriController(self.session)
+            controller.set_viewer(dialog)
 
-        dialog.simpanClicked.connect(controller.submit_update_kategori)
-        dialog.hapusClicked.connect(controller.submit_hapus_kategori)
+            dialog.simpanClicked.connect(controller.submit_update_kategori)
+            dialog.hapusClicked.connect(controller.submit_hapus_kategori)
+            dialog.tambahClicked.connect(controller.submit_tambah_kategori)
+            dialog.refreshRequested.connect(controller.refresh_kategori_list)
 
-        controller.request_edit_kategori()
+            controller.request_edit_kategori()
+        except Exception as e:
+            from PyQt6.QtWidgets import QMessageBox
+
+            QMessageBox.critical(self, "Error", f"Gagal membuka dialog kategori:\n{e}")
 
     def navigate_to(self, label):
         # Saat embedded, delegasikan ke DashboardWindow via parent
