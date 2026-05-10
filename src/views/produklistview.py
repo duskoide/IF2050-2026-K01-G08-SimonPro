@@ -485,6 +485,8 @@ class Toolbar(QFrame):
 
 
 class FilterBar(QFrame):
+    urutkan_clicked = pyqtSignal()
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setStyleSheet("background: transparent; border: none;")
@@ -518,7 +520,9 @@ class FilterBar(QFrame):
             )
             return btn
 
-        lay.addWidget(_filter_btn("mdi.sort", "Urutkan"))
+        self.btn_urutkan = _filter_btn("mdi.sort-ascending", "Urutkan")
+        self.btn_urutkan.clicked.connect(self.urutkan_clicked.emit)
+        lay.addWidget(self.btn_urutkan)
         lay.addWidget(_filter_btn("mdi.filter-outline", "Kelompokkan"))
         lay.addStretch()
 
@@ -592,9 +596,15 @@ class ProdukWindow(GradientBackground):
     def load_produk(self):
         try:
             produk_list = self._produk_service.get_daftar_produk()
+            if getattr(self, '_sort_descending', False):
+                produk_list.reverse()
             self.product_grid.set_products(produk_list)
         except Exception as e:
             print(f"[ProdukWindow] Gagal memuat data produk: {e}")
+
+    def _toggle_sort(self):
+        self._sort_descending = not getattr(self, '_sort_descending', False)
+        self.load_produk()
 
     def init_ui(self):
         root = QHBoxLayout(self)
@@ -625,7 +635,9 @@ class ProdukWindow(GradientBackground):
         self.toolbar.edit_kategori_clicked.connect(self._on_edit_kategori)
         self.toolbar.tambah_produk_clicked.connect(self._on_tambah_produk)
         sticky_lay.addWidget(self.toolbar)
-        sticky_lay.addWidget(FilterBar())
+        self.filter_bar = FilterBar()
+        self.filter_bar.urutkan_clicked.connect(self._toggle_sort)
+        sticky_lay.addWidget(self.filter_bar)
         c_lay.addWidget(sticky)
 
         scroll = QScrollArea()
