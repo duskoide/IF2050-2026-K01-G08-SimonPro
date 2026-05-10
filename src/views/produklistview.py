@@ -664,7 +664,8 @@ class ProdukWindow(GradientBackground):
 
     def _on_tambah_produk(self):
         try:
-            dialog = TambahProdukDialog(parent=self)
+            next_kode = self._produk_service.get_next_kode_produk()
+            dialog = TambahProdukDialog(kode_produk=next_kode, parent=self)
             dialog.exec()
             self.load_produk()
         except Exception as e:

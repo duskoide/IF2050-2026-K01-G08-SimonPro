@@ -98,12 +98,12 @@ class ProdukService:
         self._validate_satuan(sat)
         self._validate_kategori_exists(kat)
 
-        Produk.tambah(self._db, nama, desk, sat, gbr, kat)
+        produk_id = Produk.tambah(self._db, nama, desk, sat, gbr, kat)
 
-        hasil = Produk.getByNama(self._db, nama)
-        if not hasil:
+        hasil = Produk.getById(self._db, produk_id)
+        if hasil is None:
             raise RuntimeError("Gagal mengambil kembali produk yang baru dibuat.")
-        return hasil[0]
+        return hasil
 
     def simpan_perubahan(
         self,
@@ -146,3 +146,11 @@ class ProdukService:
     def cek_nama_tersedia(self, nama: str, exclude_id: int | None = None) -> bool:
         """True bila nama_produk belum dipakai."""
         return not Produk.cekNamaExist(self._db, nama.strip(), exclude_id)
+
+    def get_next_kode_produk(self) -> str:
+        """Generate kode produk berikutnya berdasarkan MAX produk_id + 1."""
+        rows = self._db.execute_query(
+            "SELECT COALESCE(MAX(produk_id), 0) + 1 AS next_id FROM produk"
+        )
+        next_id = rows[0]["next_id"]
+        return f"PRD-{next_id:03d}"

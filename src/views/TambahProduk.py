@@ -74,7 +74,7 @@ class TambahProdukDialog(GradientDialog):
 
         self.move(x, y)
 
-    def __init__(self, parent=None):
+    def __init__(self, kode_produk: str = "Akan tergenerate otomatis", parent=None):
         super().__init__(parent)
 
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
@@ -82,6 +82,7 @@ class TambahProdukDialog(GradientDialog):
 
         self.setFixedSize(650, 610)
 
+        self._kode_produk = kode_produk
         self._init_ui()
         self.center_dialog()
 
@@ -203,7 +204,7 @@ class TambahProdukDialog(GradientDialog):
         layout.addWidget(title)
 
         # ── Kode Produk ───────────────────────────────────────────────────────
-        self.input_kode = QLineEdit("PRD-009")
+        self.input_kode = QLineEdit(self._kode_produk)
 
         self.input_kode.setReadOnly(True)
 
