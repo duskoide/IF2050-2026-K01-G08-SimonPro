@@ -377,6 +377,8 @@ class Topbar(QFrame):
 
 
 class SearchBar(QFrame):
+    textChanged = pyqtSignal(str)
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setFixedHeight(46)
@@ -412,6 +414,7 @@ class SearchBar(QFrame):
             }
             """
         )
+        self.input.textChanged.connect(self.textChanged.emit)
 
         lay.addWidget(ico)
         lay.addWidget(self.input)
@@ -420,6 +423,7 @@ class SearchBar(QFrame):
 class Toolbar(QFrame):
     edit_kategori_clicked = pyqtSignal()
     tambah_produk_clicked = pyqtSignal()
+    search_changed = pyqtSignal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -430,8 +434,9 @@ class Toolbar(QFrame):
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(12)
 
-        search = SearchBar()
-        lay.addWidget(search, stretch=1)
+        self.search_bar = SearchBar()
+        self.search_bar.textChanged.connect(self.search_changed.emit)
+        lay.addWidget(self.search_bar, stretch=1)
 
         self.btn_cat = QPushButton()
         self.btn_cat.setText("Edit Kategori")
@@ -593,9 +598,12 @@ class ProdukWindow(GradientBackground):
         self.init_ui()
         self.load_produk()
 
-    def load_produk(self):
+    def load_produk(self, query: str | None = None):
         try:
-            produk_list = self._produk_service.get_daftar_produk()
+            if query and query.strip():
+                produk_list = self._produk_service.cari_produk(query.strip())
+            else:
+                produk_list = self._produk_service.get_daftar_produk()
             if getattr(self, '_sort_descending', False):
                 produk_list.reverse()
             self.product_grid.set_products(produk_list)
@@ -605,6 +613,10 @@ class ProdukWindow(GradientBackground):
     def _toggle_sort(self):
         self._sort_descending = not getattr(self, '_sort_descending', False)
         self.load_produk()
+
+    def _on_search_changed(self, text: str):
+        """Pencarian realtime saat user mengetik di search box."""
+        self.load_produk(query=text)
 
     def init_ui(self):
         root = QHBoxLayout(self)
@@ -634,6 +646,7 @@ class ProdukWindow(GradientBackground):
         self.toolbar = Toolbar()
         self.toolbar.edit_kategori_clicked.connect(self._on_edit_kategori)
         self.toolbar.tambah_produk_clicked.connect(self._on_tambah_produk)
+        self.toolbar.search_changed.connect(self._on_search_changed)
         sticky_lay.addWidget(self.toolbar)
         self.filter_bar = FilterBar()
         self.filter_bar.urutkan_clicked.connect(self._toggle_sort)
