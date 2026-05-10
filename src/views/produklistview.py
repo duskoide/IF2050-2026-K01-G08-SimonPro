@@ -23,6 +23,21 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+
+class DimOverlay(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setStyleSheet("background: transparent;")
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.fillRect(self.rect(), QColor(0, 0, 0, 120))
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.setGeometry(0, 0, self.parent().width(), self.parent().height())
+
 from src.views.KategoriView import EditKategoriDialog
 from src.controllers.KategoriController import KategoriController
 
@@ -655,6 +670,12 @@ class ProdukWindow(GradientBackground):
             return
 
         parent_window = self.window()
+
+        overlay = DimOverlay(parent_window)
+        overlay.setGeometry(parent_window.rect())
+        overlay.show()
+        overlay.raise_()
+
         dialog = EditKategoriDialog(parent=parent_window)
         controller = KategoriController(self.session)
         controller.set_viewer(dialog)
@@ -668,6 +689,7 @@ class ProdukWindow(GradientBackground):
             dialog.tampilkan_error(f"Gagal memuat data kategori: {e}")
 
         dialog.exec()
+        overlay.close()
 
     def navigate_to(self, label):
         # Saat embedded, delegasikan ke DashboardWindow via parent

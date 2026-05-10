@@ -4,7 +4,7 @@ import sys
 os.environ["QT_API"] = "pyqt6"
 
 import qtawesome as qta
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import Qt, pyqtSignal, QSize
 from PyQt6.QtGui import QBrush, QColor, QPainter, QPainterPath, QPixmap, QRadialGradient
 from PyQt6.QtWidgets import (
     QApplication,
@@ -71,6 +71,27 @@ class EditKategoriDialog(GradientDialog):
         layout = QVBoxLayout(card)
         layout.setContentsMargins(70, 28, 70, 30)
         layout.setSpacing(8)
+
+        self.btn_close = QPushButton(self)
+        self.btn_close.setFixedSize(40, 40)
+        self.btn_close.setIconSize(QSize(28, 28))
+        self.btn_close.move(690, 18)
+        self.btn_close.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_close.setIcon(qta.icon("fa5s.times", color="#355872"))
+        self.btn_close.setStyleSheet("""
+            QPushButton {
+                background: transparent;
+                border: none;
+                border-radius: 20px;
+            }
+            QPushButton:hover {
+                background-color: rgba(156, 213, 255, 0.25);
+            }
+            QPushButton:pressed {
+                background-color: rgba(156, 213, 255, 0.4);
+            }
+        """)
+        self.btn_close.clicked.connect(self.reject)
 
         # Title
         title = QLabel("Edit Kategori")
