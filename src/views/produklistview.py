@@ -23,6 +23,9 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from src.views.KategoriView import EditKategoriDialog
+from src.controllers.KategoriController import KategoriController
+
 
 class GradientBackground(QWidget):
     def paintEvent(self, event):
@@ -402,6 +405,8 @@ class SearchBar(QFrame):
 
 
 class Toolbar(QFrame):
+    edit_kategori_clicked = pyqtSignal()
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setStyleSheet("background: transparent; border: none;")
@@ -414,13 +419,13 @@ class Toolbar(QFrame):
         search = SearchBar()
         lay.addWidget(search, stretch=1)
 
-        btn_cat = QPushButton()
-        btn_cat.setText("Edit Kategori")
-        btn_cat.setIcon(qta.icon("mdi.folder-outline", color="#355872"))
-        btn_cat.setIconSize(QSize(20, 20))
-        btn_cat.setFixedHeight(46)
-        btn_cat.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn_cat.setStyleSheet(
+        self.btn_cat = QPushButton()
+        self.btn_cat.setText("Edit Kategori")
+        self.btn_cat.setIcon(qta.icon("mdi.folder-outline", color="#355872"))
+        self.btn_cat.setIconSize(QSize(20, 20))
+        self.btn_cat.setFixedHeight(46)
+        self.btn_cat.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_cat.setStyleSheet(
             """
             QPushButton {
                 background-color: #FFFFFF;
@@ -436,6 +441,7 @@ class Toolbar(QFrame):
             }
             """
         )
+        self.btn_cat.clicked.connect(self.edit_kategori_clicked.emit)
 
         btn_add = QPushButton()
         btn_add.setText(" Tambah Produk")
@@ -459,7 +465,7 @@ class Toolbar(QFrame):
             """
         )
 
-        lay.addWidget(btn_cat)
+        lay.addWidget(self.btn_cat)
         lay.addWidget(btn_add)
 
 
@@ -620,7 +626,9 @@ class ProdukWindow(GradientBackground):
         sticky_lay = QVBoxLayout(sticky)
         sticky_lay.setContentsMargins(28, 12, 28, 16)
         sticky_lay.setSpacing(16)
-        sticky_lay.addWidget(Toolbar())
+        self.toolbar = Toolbar()
+        self.toolbar.edit_kategori_clicked.connect(self._on_edit_kategori)
+        sticky_lay.addWidget(self.toolbar)
         sticky_lay.addWidget(FilterBar())
         c_lay.addWidget(sticky)
 
@@ -641,6 +649,19 @@ class ProdukWindow(GradientBackground):
         scroll.setWidget(inner)
         c_lay.addWidget(scroll)
         root.addWidget(content)
+
+    def _on_edit_kategori(self):
+        if not self.session:
+            return
+
+        dialog = EditKategoriDialog(parent=self)
+        controller = KategoriController(self.session)
+        controller.set_viewer(dialog)
+
+        dialog.simpanClicked.connect(controller.submit_update_kategori)
+        dialog.hapusClicked.connect(controller.submit_hapus_kategori)
+
+        controller.request_edit_kategori()
 
     def navigate_to(self, label):
         # Saat embedded, delegasikan ke DashboardWindow via parent
