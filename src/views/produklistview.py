@@ -654,14 +654,20 @@ class ProdukWindow(GradientBackground):
         if not self.session:
             return
 
-        dialog = EditKategoriDialog(parent=self)
+        parent_window = self.window()
+        dialog = EditKategoriDialog(parent=parent_window)
         controller = KategoriController(self.session)
         controller.set_viewer(dialog)
 
         dialog.simpanClicked.connect(controller.submit_update_kategori)
         dialog.hapusClicked.connect(controller.submit_hapus_kategori)
 
-        controller.request_edit_kategori()
+        try:
+            controller.request_edit_kategori()
+        except Exception as e:
+            dialog.tampilkan_error(f"Gagal memuat data kategori: {e}")
+
+        dialog.exec()
 
     def navigate_to(self, label):
         # Saat embedded, delegasikan ke DashboardWindow via parent

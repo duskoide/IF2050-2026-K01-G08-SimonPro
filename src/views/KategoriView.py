@@ -1,19 +1,25 @@
-import sys
 import os
+import sys
 
-os.environ['QT_API'] = 'pyqt6'
+os.environ["QT_API"] = "pyqt6"
 
-from PyQt6.QtWidgets import (
-    QApplication, QDialog, QVBoxLayout, QHBoxLayout,
-    QLabel, QComboBox, QLineEdit, QPushButton, QFrame, QWidget,
-)
-from PyQt6.QtWidgets import QListView
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import (
-    QPainter, QRadialGradient, QColor,
-    QBrush, QPainterPath, QPixmap
-)
 import qtawesome as qta
+from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtGui import QBrush, QColor, QPainter, QPainterPath, QPixmap, QRadialGradient
+from PyQt6.QtWidgets import (
+    QApplication,
+    QComboBox,
+    QDialog,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QListView,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
+
 
 class GradientDialog(QDialog):
     RADIUS = 20
@@ -23,32 +29,28 @@ class GradientDialog(QDialog):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
         path = QPainterPath()
-        path.addRoundedRect(
-            0, 0, self.width(), self.height(),
-            self.RADIUS, self.RADIUS
-        )
+        path.addRoundedRect(0, 0, self.width(), self.height(), self.RADIUS, self.RADIUS)
         painter.setClipPath(path)
 
-        gradient = QRadialGradient(
-            self.width() / 2,
-            self.height() / 2,
-            self.width() 
-        )
+        gradient = QRadialGradient(self.width() / 2, self.height() / 2, self.width())
 
         gradient.setColorAt(0.0, QColor("#F7F8F0"))
         gradient.setColorAt(0.5, QColor("#DCEEF4"))
-        gradient.setColorAt(1.0, QColor("#9CD5FF"))   
+        gradient.setColorAt(1.0, QColor("#9CD5FF"))
         painter.fillRect(self.rect(), QBrush(gradient))
 
-class EditKategoriDialog(GradientDialog):
 
+class EditKategoriDialog(GradientDialog):
     simpanClicked = pyqtSignal(int, str)
     hapusClicked = pyqtSignal(int)
 
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
+        self.setWindowFlags(
+            Qt.WindowType.Dialog
+            | Qt.WindowType.FramelessWindowHint
+        )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 
         self.setFixedSize(760, 380)
@@ -127,7 +129,7 @@ class EditKategoriDialog(GradientDialog):
             QComboBox:hover {{
                 background-color: rgba(156, 213, 255, 0.15);
             }}
-            
+
             QComboBox::drop-down {{
                 border: none;
                 width: 30px;
@@ -162,7 +164,7 @@ class EditKategoriDialog(GradientDialog):
                 color: #355872;
                 font-weight: 600;
             }}
-            
+
             QComboBox QAbstractItemView::item {{
                 min-height: 30px;
                 padding-left: 10px;
@@ -180,7 +182,7 @@ class EditKategoriDialog(GradientDialog):
                 color: #355872;
                 font-weight: 600;
             }}
-            
+
             QListView {{
                 border: 1px solid #355872;
                 background: #F7F8F0;
@@ -193,13 +195,10 @@ class EditKategoriDialog(GradientDialog):
                 border-radius: 6px;
                 font-size: 16px;
                 color: #355872;
-            }}            
+            }}
         """)
 
-        layout.addWidget(
-            self.combo_kategori,
-            alignment=Qt.AlignmentFlag.AlignCenter
-        )
+        layout.addWidget(self.combo_kategori, alignment=Qt.AlignmentFlag.AlignCenter)
 
         layout.addWidget(create_label("Nama Kategori Baru"))
         layout.addSpacing(4)
@@ -219,10 +218,7 @@ class EditKategoriDialog(GradientDialog):
             }
         """)
 
-        layout.addWidget(
-            self.input_baru,
-            alignment=Qt.AlignmentFlag.AlignCenter
-        )
+        layout.addWidget(self.input_baru, alignment=Qt.AlignmentFlag.AlignCenter)
 
         self.message_label = QLabel("")
         self.message_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -291,8 +287,6 @@ class EditKategoriDialog(GradientDialog):
         for kid, nama in kategori_tuples:
             self.combo_kategori.addItem(nama, kid)
 
-        self.exec()
-
     def _on_simpan(self):
         kid = self.combo_kategori.currentData()
         nama = self.input_baru.text().strip()
@@ -303,6 +297,23 @@ class EditKategoriDialog(GradientDialog):
         kid = self.combo_kategori.currentData()
 
         self.hapusClicked.emit(kid)
+
+    # Display error message in red
+    def tampilkan_error(self, msg: str):
+        self.message_label.setStyleSheet(
+            "color: #C0392B; font-size: 14px; font-weight: 600; "
+            "border: none; background: transparent;"
+        )
+        self.message_label.setText(msg)
+
+    # Display success message in green, then close dialog
+    def tampilkan_success(self, msg: str):
+        self.message_label.setStyleSheet(
+            "color: #27AE60; font-size: 14px; font-weight: 600; "
+            "border: none; background: transparent;"
+        )
+        self.message_label.setText(msg)
+        self.accept()
 
 
 if __name__ == "__main__":
@@ -317,9 +328,8 @@ if __name__ == "__main__":
         (3, "PakaianDalam"),
     ]
 
-    dialog.tampilkan_form_edit(data)
-
     dialog.simpanClicked.connect(lambda i, n: print(f"Simpan {i} -> {n}"))
     dialog.hapusClicked.connect(lambda i: print(f"Hapus {i}"))
 
-    sys.exit(app.exec())
+    dialog.tampilkan_form_edit(data)
+    dialog.exec()
