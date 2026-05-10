@@ -5,11 +5,11 @@ os.environ['QT_API'] = 'pyqt6'
 
 from PyQt6.QtWidgets import (
     QApplication, QDialog, QVBoxLayout, QHBoxLayout,
-    QLabel, QComboBox, QLineEdit, QPushButton, QFrame,
-    QListView
+    QLabel, QComboBox, QLineEdit, QPushButton,
+    QFrame, QListView
 )
 
-from PyQt6.QtCore import (Qt, QSize)
+from PyQt6.QtCore import Qt, QSize
 
 from PyQt6.QtGui import (
     QPainter,
@@ -31,6 +31,7 @@ class GradientDialog(QDialog):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
         path = QPainterPath()
+
         path.addRoundedRect(
             0,
             0,
@@ -52,11 +53,14 @@ class GradientDialog(QDialog):
         gradient.setColorAt(0.45, QColor("#EEF4F6"))
         gradient.setColorAt(1.0, QColor("#D6ECFA"))
 
-        painter.fillRect(self.rect(), QBrush(gradient))
+        painter.fillRect(
+            self.rect(),
+            QBrush(gradient)
+        )
 
 
-# ── Dialog Tambah Produk (UI Mockup Only) ─────────────────────────────────────
-class TambahProdukDialog(GradientDialog):
+# ── Dialog Edit Produk ─────────────────────────────────────────────────────────
+class EditProdukDialog(GradientDialog):
 
     _INPUT_SS = """
         QLineEdit {{
@@ -68,7 +72,7 @@ class TambahProdukDialog(GradientDialog):
             color: #355872;
         }}
     """
-    
+
     def center_dialog(self):
         screen = QApplication.primaryScreen().availableGeometry()
 
@@ -80,17 +84,23 @@ class TambahProdukDialog(GradientDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setWindowFlags(
+            Qt.WindowType.FramelessWindowHint
+        )
+
+        self.setAttribute(
+            Qt.WidgetAttribute.WA_TranslucentBackground
+        )
 
         self.setFixedSize(650, 610)
 
         self._init_ui()
         self.center_dialog()
 
-    # ── Helper Label ──────────────────────────────────────────────────────────
+    # ── Helper Label ────────────────────────────────────────────────────────
     @staticmethod
     def _make_label(text: str) -> QLabel:
+
         lbl = QLabel(text)
 
         lbl.setStyleSheet("""
@@ -103,8 +113,8 @@ class TambahProdukDialog(GradientDialog):
 
         return lbl
 
-    # ── Helper Row ────────────────────────────────────────────────────────────
-    def _make_row(self, label_text: str, widget) -> QVBoxLayout:
+    # ── Helper Row ──────────────────────────────────────────────────────────
+    def _make_row(self, label_text: str, widget):
 
         container = QVBoxLayout()
 
@@ -119,10 +129,13 @@ class TambahProdukDialog(GradientDialog):
         wrapper.addWidget(widget)
 
         wrapper_widget = QFrame()
+
         wrapper_widget.setLayout(wrapper)
 
-        wrapper_widget.setFixedWidth(widget.width() + 20)
-        
+        wrapper_widget.setFixedWidth(
+            widget.width() + 20
+        )
+
         container.addWidget(
             wrapper_widget,
             alignment=Qt.AlignmentFlag.AlignCenter
@@ -130,20 +143,25 @@ class TambahProdukDialog(GradientDialog):
 
         return container
 
-    # ── Build UI ──────────────────────────────────────────────────────────────
+    # ── Build UI ────────────────────────────────────────────────────────────
     def _init_ui(self):
 
         main_layout = QVBoxLayout(self)
 
-        main_layout.setContentsMargins(28, 10, 28, 10)
+        main_layout.setContentsMargins(
+            28, 10, 28, 10
+        )
 
         card = QFrame(self)
-        
-        # ── Close Button ─────────────────────────────────────────────────────
+
+        # ── Close Button ────────────────────────────────────────────────────
         self.btn_close = QPushButton(self)
 
         self.btn_close.setFixedSize(40, 40)
-        self.btn_close.setIconSize(QSize(28, 28))
+
+        self.btn_close.setIconSize(
+            QSize(28, 28)
+        )
 
         self.btn_close.move(590, 18)
 
@@ -166,15 +184,19 @@ class TambahProdukDialog(GradientDialog):
             }
 
             QPushButton:hover {
-                background-color: rgba(156, 213, 255, 0.25);
+                background-color:
+                    rgba(156, 213, 255, 0.25);
             }
 
             QPushButton:pressed {
-                background-color: rgba(156, 213, 255, 0.4);
+                background-color:
+                    rgba(156, 213, 255, 0.4);
             }
         """)
 
-        self.btn_close.clicked.connect(self.close)        
+        self.btn_close.clicked.connect(
+            self.close
+        )
 
         card.setStyleSheet("""
             background: transparent;
@@ -183,13 +205,18 @@ class TambahProdukDialog(GradientDialog):
 
         layout = QVBoxLayout(card)
 
-        layout.setContentsMargins(20, 28, 20, 28)
+        layout.setContentsMargins(
+            20, 28, 20, 28
+        )
+
         layout.setSpacing(4)
 
-        # ── Title ─────────────────────────────────────────────────────────────
-        title = QLabel("Tambah Produk")
+        # ── Title ───────────────────────────────────────────────────────────
+        title = QLabel("Edit Produk")
 
-        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title.setAlignment(
+            Qt.AlignmentFlag.AlignCenter
+        )
 
         title.setStyleSheet("""
             QLabel {
@@ -205,8 +232,8 @@ class TambahProdukDialog(GradientDialog):
 
         layout.addWidget(title)
 
-        # ── Kode Produk ───────────────────────────────────────────────────────
-        self.input_kode = QLineEdit("PRD-009")
+        # ── Kode Produk ─────────────────────────────────────────────────────
+        self.input_kode = QLineEdit()
 
         self.input_kode.setReadOnly(True)
 
@@ -214,20 +241,19 @@ class TambahProdukDialog(GradientDialog):
 
         self.input_kode.setStyleSheet(
             self._INPUT_SS.format(
-                bg="rgba(156, 213, 255, 0.25)"
+                bg="transparent"
             )
         )
 
         layout.addLayout(
-            self._make_row("Kode Produk", self.input_kode)
+            self._make_row(
+                "Kode Produk",
+                self.input_kode
+            )
         )
 
-        # ── Nama Produk ───────────────────────────────────────────────────────
+        # ── Nama Produk ─────────────────────────────────────────────────────
         self.input_nama = QLineEdit()
-
-        self.input_nama.setPlaceholderText(
-            ""
-        )
 
         self.input_nama.setFixedSize(400, 46)
 
@@ -238,10 +264,13 @@ class TambahProdukDialog(GradientDialog):
         )
 
         layout.addLayout(
-            self._make_row("Nama Produk", self.input_nama)
+            self._make_row(
+                "Nama Produk",
+                self.input_nama
+            )
         )
 
-        # ── Kategori Produk ───────────────────────────────────────────────────
+        # ── Kategori Produk ─────────────────────────────────────────────────
         self.combo_kategori = QComboBox()
 
         self.combo_kategori.setView(QListView())
@@ -343,20 +372,23 @@ class TambahProdukDialog(GradientDialog):
             )
         )
 
-        # ── Deskripsi ─────────────────────────────────────────────────────────
+        # ── Deskripsi ───────────────────────────────────────────────────────
         self.input_deskripsi = QLineEdit()
 
-        self.input_deskripsi.setPlaceholderText(
-            ""
+        self.input_deskripsi.setFixedSize(
+            400, 46
         )
 
-        self.input_deskripsi.setFixedSize(400, 46)
-
-        self.input_deskripsi.setStyleSheet(
-            self._INPUT_SS.format(
-                bg="transparent"
-            )
-        )
+        self.input_deskripsi.setStyleSheet("""
+            QLineEdit {
+                border: 1.5px solid #355872;
+                border-radius: 15px;
+                padding: 0 12px;
+                font-size: 11px;
+                background: transparent;
+                color: #355872;
+            }
+        """)
 
         layout.addLayout(
             self._make_row(
@@ -365,10 +397,12 @@ class TambahProdukDialog(GradientDialog):
             )
         )
 
-        # ── Foto Produk ───────────────────────────────────────────────────────
+        # ── Foto Produk ─────────────────────────────────────────────────────
         foto_container = QFrame()
 
-        foto_container.setFixedSize(400, 46)
+        foto_container.setFixedSize(
+            400, 46
+        )
 
         foto_container.setStyleSheet("""
             QFrame {
@@ -378,16 +412,17 @@ class TambahProdukDialog(GradientDialog):
             }
         """)
 
-        foto_h = QHBoxLayout(foto_container)
+        foto_h = QHBoxLayout(
+            foto_container
+        )
 
-        foto_h.setContentsMargins(12, 0, 10, 0)
-        foto_h.setSpacing(0)
+        foto_h.setContentsMargins(
+            12, 0, 10, 0
+        )
 
         self.label_foto = QLabel()
 
         self.label_foto.setStyleSheet("""
-            color: #9AABB8;
-            font-size: 15px;
             background: transparent;
             border: none;
         """)
@@ -403,10 +438,6 @@ class TambahProdukDialog(GradientDialog):
             )
         )
 
-        btn_upload.setCursor(
-            Qt.CursorShape.PointingHandCursor
-        )
-
         btn_upload.setStyleSheet("""
             QPushButton {
                 background: transparent;
@@ -414,12 +445,17 @@ class TambahProdukDialog(GradientDialog):
             }
 
             QPushButton:hover {
-                background: rgba(156, 213, 255, 0.3);
+                background:
+                    rgba(156, 213, 255, 0.3);
                 border-radius: 8px;
             }
         """)
 
-        foto_h.addWidget(self.label_foto, stretch=1)
+        foto_h.addWidget(
+            self.label_foto,
+            stretch=1
+        )
+
         foto_h.addWidget(btn_upload)
 
         layout.addLayout(
@@ -429,16 +465,21 @@ class TambahProdukDialog(GradientDialog):
             )
         )
 
-        # ── Spacer ────────────────────────────────────────────────────────────
-        layout.addSpacing(8)
+        # ── Spacer ──────────────────────────────────────────────────────────
+        layout.addSpacing(10)
 
-        # ── Button Simpan ─────────────────────────────────────────────────────
-        self.btn_simpan = QPushButton("Simpan Produk")
+        # ── Buttons ─────────────────────────────────────────────────────────
+        button_layout = QHBoxLayout()
 
-        self.btn_simpan.setFixedSize(180, 46)
+        button_layout.setSpacing(16)
 
-        self.btn_simpan.setCursor(
-            Qt.CursorShape.PointingHandCursor
+        # Save Button
+        self.btn_simpan = QPushButton(
+            "Simpan Produk"
+        )
+
+        self.btn_simpan.setFixedSize(
+            140, 42
         )
 
         self.btn_simpan.setIcon(
@@ -452,30 +493,59 @@ class TambahProdukDialog(GradientDialog):
             QPushButton {
                 background-color: #9CD5FF;
                 color: #355872;
-                font-size: 14px;
+                font-size: 13px;
                 font-weight: 700;
                 border: 1.5px solid #355872;
-                border-radius: 15px;
+                border-radius: 12px;
             }
 
             QPushButton:hover {
                 background-color: #E3F3FF;
-                border: 1.5px solid #355872;
-                color: #355872;
-            }
-
-            QPushButton:pressed {
-                background-color: #9CD5FF;
             }
         """)
 
-        btn_layout = QHBoxLayout()
+        # Delete Button
+        self.btn_hapus = QPushButton(
+            "Hapus Produk"
+        )
 
-        btn_layout.addStretch()
-        btn_layout.addWidget(self.btn_simpan)
-        btn_layout.addStretch()
+        self.btn_hapus.setFixedSize(
+            140, 42
+        )
 
-        layout.addLayout(btn_layout)
+        self.btn_hapus.setIcon(
+            qta.icon(
+                "fa5s.trash-alt",
+                color="#355872"
+            )
+        )
+
+        self.btn_hapus.setStyleSheet("""
+            QPushButton {
+                background-color: #FF8B8B;
+                color: #355872;
+                font-size: 13px;
+                font-weight: 700;
+                border: 1.5px solid #355872;
+                border-radius: 12px;
+            }
+
+            QPushButton:hover {
+                background-color: #FFB1B1;
+            }
+        """)
+
+        button_layout.setSpacing(120)
+        button_layout.addStretch()
+        button_layout.addWidget(
+            self.btn_simpan
+        )
+        button_layout.addWidget(
+            self.btn_hapus
+        )
+        button_layout.addStretch()
+
+        layout.addLayout(button_layout)
 
         main_layout.addWidget(card)
 
@@ -487,7 +557,7 @@ if __name__ == "__main__":
 
     app.setStyle("Fusion")
 
-    dialog = TambahProdukDialog()
+    dialog = EditProdukDialog()
 
     dialog.exec()
 
