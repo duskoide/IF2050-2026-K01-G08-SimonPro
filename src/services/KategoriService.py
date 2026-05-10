@@ -61,6 +61,8 @@ class KategoriService:
     #     return True
 
     def hapusKategori(self, kategori_id: int) -> bool:
+        if KategoriProduk.hasProduk(self.db, kategori_id):
+            return False
         KategoriProduk.hapus(self.db, kategori_id)
         return True
 

@@ -23,7 +23,7 @@ CREATE TABLE produk (
     satuan          VARCHAR(50),
     gambar          TEXT,
     status_aktif    BOOLEAN      NOT NULL DEFAULT TRUE,
-    nama_kategori   VARCHAR(100) NOT NULL REFERENCES kategori_produk(nama_kategori)
+    nama_kategori   VARCHAR(100) NOT NULL REFERENCES kategori_produk(nama_kategori) ON UPDATE CASCADE ON DELETE RESTRICT
 );
 
 CREATE TABLE target_produksi (
