@@ -77,7 +77,7 @@ class TambahProdukDialog(GradientDialog):
 
         self.move(x, y)
 
-    def __init__(self, kode_produk: str = "Akan tergenerate otomatis", parent=None):
+    def __init__(self, kode_produk: str = "Akan tergenerate otomatis", categories: list[str] = None, parent=None):
         super().__init__(parent)
 
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
@@ -86,6 +86,7 @@ class TambahProdukDialog(GradientDialog):
         self.setFixedSize(650, 610)
 
         self._kode_produk = kode_produk
+        self._categories = categories or []
         self._init_ui()
         self.center_dialog()
 
@@ -249,11 +250,7 @@ class TambahProdukDialog(GradientDialog):
 
         self.combo_kategori.setFixedSize(400, 46)
 
-        self.combo_kategori.addItems([
-            "Atasan",
-            "Bawahan",
-            "Pakaian Dalam"
-        ])
+        self.combo_kategori.addItems(self._categories)
 
         # Custom Arrow Icon
         arrow_lbl = QLabel(self.combo_kategori)

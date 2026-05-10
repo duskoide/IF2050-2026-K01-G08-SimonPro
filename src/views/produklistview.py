@@ -29,6 +29,7 @@ from src.views.TambahProduk import TambahProdukDialog
 from src.views.EditProduk import EditProdukDialog
 from src.database.db_connection import get_db
 from src.services.ProdukService import ProdukService
+from src.services.KategoriService import KategoriService
 from src.models.Produk import Produk
 
 
@@ -669,7 +670,17 @@ class ProdukWindow(GradientBackground):
     def _on_tambah_produk(self):
         try:
             next_kode = self._produk_service.get_next_kode_produk()
-            dialog = TambahProdukDialog(kode_produk=next_kode, parent=self)
+
+            # Ambil daftar kategori dari database
+            kategori_service = KategoriService()
+            daftar_kategori = kategori_service.getDaftarKategori()
+            categories = [k.nama_kategori for k in daftar_kategori]
+
+            dialog = TambahProdukDialog(
+                kode_produk=next_kode,
+                categories=categories,
+                parent=self
+            )
             dialog.exec()
             self.load_produk()
         except Exception as e:
