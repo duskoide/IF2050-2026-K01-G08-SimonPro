@@ -31,6 +31,7 @@ from src.database.db_connection import get_db
 from src.services.ProdukService import ProdukService
 from src.services.KategoriService import KategoriService
 from src.models.Produk import Produk
+from src.utils.image_utils import load_product_pixmap
 
 
 class GradientBackground(QWidget):
@@ -85,7 +86,18 @@ class ProductCard(Card):
         lay.setContentsMargins(14, 14, 14, 14)
         lay.setSpacing(5)
 
-        lay.addWidget(ImagePlaceholder())
+        pixmap = load_product_pixmap(produk.gambar) if produk.gambar else None
+        if pixmap:
+            img_label = QLabel()
+            img_label.setPixmap(pixmap)
+            img_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            img_label.setFixedHeight(160)
+            img_label.setStyleSheet(
+                "background: #EAF6FF; border-radius: 12px; border: 1px solid #35587226;"
+            )
+            lay.addWidget(img_label)
+        else:
+            lay.addWidget(ImagePlaceholder())
 
         name_row = QHBoxLayout()
         name_row.setSpacing(6)

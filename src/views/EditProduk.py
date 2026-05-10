@@ -1,5 +1,6 @@
 import sys
 import os
+from pathlib import Path
 
 os.environ['QT_API'] = 'pyqt6'
 
@@ -22,6 +23,7 @@ from PyQt6.QtGui import (
 import qtawesome as qta
 
 from src.models.Produk import Produk
+from src.utils.image_utils import pick_image_file, save_image_to_app
 
 
 # ── Gradient Dialog ────────────────────────────────────────────────────────────
@@ -87,6 +89,7 @@ class EditProdukDialog(GradientDialog):
         super().__init__(parent)
 
         self.produk = produk
+        self._selected_image_path: str | None = None
 
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint
@@ -425,25 +428,27 @@ class EditProdukDialog(GradientDialog):
             12, 0, 10, 0
         )
 
-        self.label_foto = QLabel()
+        self.label_foto = QLabel("Pilih file gambar...")
 
         self.label_foto.setStyleSheet("""
             background: transparent;
             border: none;
+            color: #9AABB8;
+            font-size: 15px;
         """)
 
-        btn_upload = QPushButton()
+        self.btn_upload = QPushButton()
 
-        btn_upload.setFixedSize(32, 32)
+        self.btn_upload.setFixedSize(32, 32)
 
-        btn_upload.setIcon(
+        self.btn_upload.setIcon(
             qta.icon(
                 "fa5s.upload",
                 color="#355872"
             )
         )
 
-        btn_upload.setStyleSheet("""
+        self.btn_upload.setStyleSheet("""
             QPushButton {
                 background: transparent;
                 border: none;
@@ -456,12 +461,18 @@ class EditProdukDialog(GradientDialog):
             }
         """)
 
+        self.btn_upload.setCursor(
+            Qt.CursorShape.PointingHandCursor
+        )
+
+        self.btn_upload.clicked.connect(self._on_upload_clicked)
+
         foto_h.addWidget(
             self.label_foto,
             stretch=1
         )
 
-        foto_h.addWidget(btn_upload)
+        foto_h.addWidget(self.btn_upload)
 
         layout.addLayout(
             self._make_row(
@@ -578,6 +589,32 @@ class EditProdukDialog(GradientDialog):
         # Foto (placeholder saat ini)
         if self.produk.gambar:
             self.label_foto.setText(self.produk.gambar)
+            self.label_foto.setStyleSheet("""
+                background: transparent;
+                border: none;
+                color: #355872;
+                font-size: 15px;
+            """)
+
+    def _on_upload_clicked(self):
+        raw_path = pick_image_file(self)
+        if raw_path:
+            self._selected_image_path = raw_path
+            filename = Path(raw_path).name
+            self.label_foto.setText(filename)
+            self.label_foto.setStyleSheet("""
+                background: transparent;
+                border: none;
+                color: #355872;
+                font-size: 15px;
+            """)
+
+    def get_selected_image_relpath(self) -> str | None:
+        if self._selected_image_path:
+            return save_image_to_app(self._selected_image_path)
+        if self.produk and self.produk.gambar:
+            return self.produk.gambar
+        return None
 
 
 # ── Entry Point ────────────────────────────────────────────────────────────────
