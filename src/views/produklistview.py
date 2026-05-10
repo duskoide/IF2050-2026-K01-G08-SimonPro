@@ -25,6 +25,7 @@ from PyQt6.QtWidgets import (
 
 from src.controllers.KategoriController import KategoriController
 from src.views.KategoriView import EditKategoriDialog
+from src.views.TambahProduk import TambahProdukDialog
 from src.database.db_connection import get_db
 from src.services.ProdukService import ProdukService
 from src.models.Produk import Produk
@@ -411,6 +412,7 @@ class SearchBar(QFrame):
 
 class Toolbar(QFrame):
     edit_kategori_clicked = pyqtSignal()
+    tambah_produk_clicked = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -448,13 +450,13 @@ class Toolbar(QFrame):
         )
         self.btn_cat.clicked.connect(self.edit_kategori_clicked.emit)
 
-        btn_add = QPushButton()
-        btn_add.setText(" Tambah Produk")
-        btn_add.setIcon(qta.icon("mdi.plus", color="#FFFFFF"))
-        btn_add.setIconSize(QSize(20, 20))
-        btn_add.setFixedHeight(46)
-        btn_add.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn_add.setStyleSheet(
+        self.btn_add = QPushButton()
+        self.btn_add.setText(" Tambah Produk")
+        self.btn_add.setIcon(qta.icon("mdi.plus", color="#FFFFFF"))
+        self.btn_add.setIconSize(QSize(20, 20))
+        self.btn_add.setFixedHeight(46)
+        self.btn_add.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_add.setStyleSheet(
             """
             QPushButton {
                 background-color: #355872;
@@ -469,9 +471,10 @@ class Toolbar(QFrame):
             }
             """
         )
+        self.btn_add.clicked.connect(self.tambah_produk_clicked.emit)
 
         lay.addWidget(self.btn_cat)
-        lay.addWidget(btn_add)
+        lay.addWidget(self.btn_add)
 
 
 class FilterBar(QFrame):
@@ -615,6 +618,7 @@ class ProdukWindow(GradientBackground):
         sticky_lay.setSpacing(16)
         self.toolbar = Toolbar()
         self.toolbar.edit_kategori_clicked.connect(self._on_edit_kategori)
+        self.toolbar.tambah_produk_clicked.connect(self._on_tambah_produk)
         sticky_lay.addWidget(self.toolbar)
         sticky_lay.addWidget(FilterBar())
         c_lay.addWidget(sticky)
@@ -657,6 +661,16 @@ class ProdukWindow(GradientBackground):
             from PyQt6.QtWidgets import QMessageBox
 
             QMessageBox.critical(self, "Error", f"Gagal membuka dialog kategori:\n{e}")
+
+    def _on_tambah_produk(self):
+        try:
+            dialog = TambahProdukDialog(parent=self)
+            dialog.exec()
+            self.load_produk()
+        except Exception as e:
+            from PyQt6.QtWidgets import QMessageBox
+
+            QMessageBox.critical(self, "Error", f"Gagal membuka dialog tambah produk:\n{e}")
 
     def navigate_to(self, label):
         # Saat embedded, delegasikan ke DashboardWindow via parent
