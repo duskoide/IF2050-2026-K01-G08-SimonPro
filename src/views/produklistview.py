@@ -682,6 +682,7 @@ class ProdukWindow(GradientBackground):
 
         dialog.simpanClicked.connect(controller.submit_update_kategori)
         dialog.hapusClicked.connect(controller.submit_hapus_kategori)
+        dialog.tambahClicked.connect(controller.submit_tambah_kategori)
 
         try:
             controller.request_edit_kategori()

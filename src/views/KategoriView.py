@@ -43,6 +43,10 @@ class GradientDialog(QDialog):
 class EditKategoriDialog(GradientDialog):
     simpanClicked = pyqtSignal(int, str)
     hapusClicked = pyqtSignal(int)
+    tambahClicked = pyqtSignal(str)
+
+    ADD_ITEM_TEXT = "Tambah Kategori Baru"
+    ADD_ITEM_DATA = "__ADD_NEW__"
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -56,6 +60,7 @@ class EditKategoriDialog(GradientDialog):
         self.setFixedSize(760, 380)
 
         self._drag_pos = None
+        self.is_add_mode = False
         self.init_ui()
 
     def init_ui(self):
@@ -220,6 +225,7 @@ class EditKategoriDialog(GradientDialog):
         """)
 
         layout.addWidget(self.combo_kategori, alignment=Qt.AlignmentFlag.AlignCenter)
+        self.combo_kategori.currentIndexChanged.connect(self._on_kategori_changed)
 
         layout.addWidget(create_label("Nama Kategori Baru"))
         layout.addSpacing(4)
@@ -274,7 +280,7 @@ class EditKategoriDialog(GradientDialog):
         self.btn_hapus = QPushButton("Hapus Kategori")
         self.btn_hapus.setFixedSize(150, 46)
         self.btn_hapus.setIcon(qta.icon("fa5s.trash", color="#355872"))
-        self.btn_hapus.setStyleSheet("""
+        self._btn_hapus_style = """
             QPushButton {
                 background-color: #FF8D8D;
                 color: #355872;
@@ -291,7 +297,27 @@ class EditKategoriDialog(GradientDialog):
             QPushButton:pressed {
                 background-color: #FFC0C0;
             }
-        """)
+        """
+        self._btn_hapus_disabled_style = """
+            QPushButton {
+                background-color: rgba(255, 141, 141, 0.5);
+                color: rgba(53, 88, 114, 0.6);
+                font-size: 14px;
+                font-weight: 700;
+                border: 1.5px solid rgba(53, 88, 114, 0.5);
+                border-radius: 15px;
+            }
+            QPushButton:hover {
+                background-color: rgba(255, 192, 192, 0.6);
+                border: 1.5px solid rgba(53, 88, 114, 0.5);
+                color: rgba(53, 88, 114, 0.6);
+            }
+            QPushButton:pressed {
+                background-color: rgba(255, 192, 192, 0.7);
+            }
+        """
+        self.btn_hapus.setStyleSheet(self._btn_hapus_style)
+        self.btn_hapus.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_hapus.clicked.connect(self._on_hapus)
 
         btn_layout.addStretch()
@@ -303,24 +329,69 @@ class EditKategoriDialog(GradientDialog):
         main_layout.addWidget(card)
 
     def tampilkan_form_edit(self, kategori_tuples):
+        self.combo_kategori.blockSignals(True)
         self.combo_kategori.clear()
 
         for kid, nama in kategori_tuples:
             self.combo_kategori.addItem(nama, kid)
+        self.combo_kategori.addItem(self.ADD_ITEM_TEXT, self.ADD_ITEM_DATA)
+
+        if self.combo_kategori.count() > 0:
+            self.combo_kategori.setCurrentIndex(0)
+        self.combo_kategori.blockSignals(False)
+        self._set_add_mode(
+            self.combo_kategori.currentData() == self.ADD_ITEM_DATA
+        )
+        self.message_label.setText("")
 
     def _on_simpan(self):
-        kid = self.combo_kategori.currentData()
         nama = self.input_baru.text().strip()
+        if self.is_add_mode:
+            self.tambahClicked.emit(nama)
+            return
 
+        kid = self.combo_kategori.currentData()
         self.simpanClicked.emit(kid, nama)
 
     def _on_hapus(self):
-        kid = self.combo_kategori.currentData()
+        if self.is_add_mode:
+            self._show_inline_error("Tidak bisa hapus saat tambah kategori.")
+            return
 
+        kid = self.combo_kategori.currentData()
         self.hapusClicked.emit(kid)
+
+    def _on_kategori_changed(self, index):
+        is_add = self.combo_kategori.itemData(index) == self.ADD_ITEM_DATA
+        self._set_add_mode(is_add)
+
+    def _set_add_mode(self, enabled: bool) -> None:
+        self.is_add_mode = enabled
+        if enabled:
+            self.btn_hapus.setStyleSheet(self._btn_hapus_disabled_style)
+            self.btn_hapus.setCursor(Qt.CursorShape.ForbiddenCursor)
+            self.input_baru.clear()
+            self._show_inline_error("")
+        else:
+            self.btn_hapus.setStyleSheet(self._btn_hapus_style)
+            self.btn_hapus.setCursor(Qt.CursorShape.PointingHandCursor)
+            self._show_inline_error("")
+
+    def _show_inline_error(self, msg: str) -> None:
+        if msg:
+            self.message_label.setStyleSheet(
+                "color: #C0392B; font-size: 12px; font-weight: 600; "
+                "border: none; background: transparent;"
+            )
+            self.message_label.setText(msg)
+            return
+        self.message_label.setText("")
 
     # Display error message in red
     def tampilkan_error(self, msg: str):
+        if self.is_add_mode:
+            self._show_inline_error(msg)
+            return
         self.message_label.setStyleSheet(
             "color: #C0392B; font-size: 14px; font-weight: 600; "
             "border: none; background: transparent;"
