@@ -1,15 +1,33 @@
 import os
 import sys
 
-os.environ['QT_API'] = 'pyqt6'
+os.environ["QT_API"] = "pyqt6"
 
 import qtawesome as qta
 from PyQt6.QtCore import QPointF, QRectF, QSize, Qt, pyqtSignal
-from PyQt6.QtGui import (QBrush, QColor, QFont, QLinearGradient, QPainter,
-                         QPainterPath, QPen, QPixmap)
-from PyQt6.QtWidgets import (QApplication, QFrame, QGraphicsDropShadowEffect,
-                             QHBoxLayout, QLabel, QPushButton, QScrollArea,
-                             QSizePolicy, QVBoxLayout, QWidget)
+from PyQt6.QtGui import (
+    QBrush,
+    QColor,
+    QFont,
+    QLinearGradient,
+    QPainter,
+    QPainterPath,
+    QPen,
+    QPixmap,
+)
+from PyQt6.QtWidgets import (
+    QApplication,
+    QFrame,
+    QGraphicsDropShadowEffect,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QScrollArea,
+    QSizePolicy,
+    QStackedWidget,
+    QVBoxLayout,
+    QWidget,
+)
 
 from src.services.DashboardService import DashboardService
 
@@ -20,10 +38,7 @@ class GradientBackground(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-        gradient = QLinearGradient(
-            0, self.height(),
-            self.width(), 0
-        )
+        gradient = QLinearGradient(0, self.height(), self.width(), 0)
         gradient.setColorAt(0.0, QColor("#B8E4FF"))
         gradient.setColorAt(0.2, QColor("#EAF6FF"))
         gradient.setColorAt(0.6, QColor("#F7F8F0"))
@@ -31,7 +46,7 @@ class GradientBackground(QWidget):
         painter.fillRect(self.rect(), QBrush(gradient))
 
 
-#Card
+# Card
 class Card(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -49,7 +64,7 @@ class Card(QFrame):
         self.setGraphicsEffect(shadow)
 
 
-#Stat Card
+# Stat Card
 class StatCard(Card):
     def __init__(self, icon_name, title, value, sub, parent=None):
         super().__init__(parent)
@@ -79,13 +94,19 @@ class StatCard(Card):
         top.addStretch()
 
         lbl_title = QLabel(title)
-        lbl_title.setStyleSheet("color:#7AAACE; font-size:20px; border:none; background:transparent;")
+        lbl_title.setStyleSheet(
+            "color:#7AAACE; font-size:20px; border:none; background:transparent;"
+        )
 
         self.lbl_value = QLabel(value)
-        self.lbl_value.setStyleSheet("color:#355872; font-size:24px; font-weight:700; border:none; background:transparent;")
+        self.lbl_value.setStyleSheet(
+            "color:#355872; font-size:24px; font-weight:700; border:none; background:transparent;"
+        )
 
         self.lbl_sub = QLabel(sub)
-        self.lbl_sub.setStyleSheet("color:#7AAACE; font-size:18px; border:none; background:transparent;")
+        self.lbl_sub.setStyleSheet(
+            "color:#7AAACE; font-size:18px; border:none; background:transparent;"
+        )
 
         layout.addLayout(top)
         layout.addSpacing(1)
@@ -104,8 +125,8 @@ class StatCard(Card):
 class BarChart(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.labels = ["Jan", "Feb", "Mar", "Apr"] 
-        self.target = [10500, 11000, 11500, 11800] 
+        self.labels = ["Jan", "Feb", "Mar", "Apr"]
+        self.target = [10500, 11000, 11500, 11800]
         self.actual = [10000, 10800, 11200, 11600]
         self.setMinimumHeight(380)
 
@@ -135,8 +156,14 @@ class BarChart(QWidget):
             p.setPen(QPen(QColor("#7AAACE"), 1, Qt.PenStyle.DashLine))
             p.drawLine(int(pl), int(y), int(W - pr), int(y))
             p.setPen(QColor("#6B8CA4"))
-            p.drawText(0, int(y) - 6, pl - 6, 14, Qt.AlignmentFlag.AlignRight,
-                       str(int(max_v * i / 4)))
+            p.drawText(
+                0,
+                int(y) - 6,
+                pl - 6,
+                14,
+                Qt.AlignmentFlag.AlignRight,
+                str(int(max_v * i / 4)),
+            )
 
         # Bars
         for i, lbl in enumerate(self.labels):
@@ -158,8 +185,14 @@ class BarChart(QWidget):
             p.drawPath(path2)
 
             p.setPen(QColor("#355872"))
-            p.drawText(int(cx - gw / 2), H - pb + 6, int(gw), 16,
-                       Qt.AlignmentFlag.AlignHCenter, lbl)
+            p.drawText(
+                int(cx - gw / 2),
+                H - pb + 6,
+                int(gw),
+                16,
+                Qt.AlignmentFlag.AlignHCenter,
+                lbl,
+            )
 
         # Legend
         ly = H - pb + 30
@@ -167,27 +200,37 @@ class BarChart(QWidget):
         text_w = 50
         spacing = 8
         group_gap = 20
-        total_w = (
-            box_w + spacing + text_w +
-            group_gap +
-            box_w + spacing + text_w
-        )
+        total_w = box_w + spacing + text_w + group_gap + box_w + spacing + text_w
         start_x = (W - total_w) / 2
         p.setBrush(QBrush(QColor("#7AAACE")))
         p.setPen(Qt.PenStyle.NoPen)
         p.drawRoundedRect(int(start_x), ly, box_w, 18, 2, 2)
         p.setPen(QColor("#7AAACE"))
-        p.drawText(int(start_x + box_w + spacing), ly, text_w, 18, Qt.AlignmentFlag.AlignCenter, "Target")
+        p.drawText(
+            int(start_x + box_w + spacing),
+            ly,
+            text_w,
+            18,
+            Qt.AlignmentFlag.AlignCenter,
+            "Target",
+        )
 
         lx2 = start_x + box_w + spacing + text_w + group_gap
         p.setBrush(QBrush(QColor("#9CD5FF")))
         p.setPen(Qt.PenStyle.NoPen)
         p.drawRoundedRect(int(lx2), ly, box_w, 18, 2, 2)
         p.setPen(QColor("#9CD5FF"))
-        p.drawText(int(lx2 + box_w + spacing), ly, text_w, 18, Qt.AlignmentFlag.AlignCenter, "Aktual")
+        p.drawText(
+            int(lx2 + box_w + spacing),
+            ly,
+            text_w,
+            18,
+            Qt.AlignmentFlag.AlignCenter,
+            "Aktual",
+        )
 
 
-#Line Chart
+# Line Chart
 class LineChart(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -212,8 +255,11 @@ class LineChart(QWidget):
         if n == 0:
             return
 
-        def px(i): return pl + i * cw / (n - 1)
-        def py(v): return pt + ch - (v / max_v) * ch
+        def px(i):
+            return pl + i * cw / (n - 1)
+
+        def py(v):
+            return pt + ch - (v / max_v) * ch
 
         # Grid
         for i in range(5):
@@ -221,8 +267,14 @@ class LineChart(QWidget):
             p.setPen(QPen(QColor("#7AAACE"), 1, Qt.PenStyle.DashLine))
             p.drawLine(int(pl), int(y), int(W - pr), int(y))
             p.setPen(QColor("#6B8CA4"))
-            p.drawText(0, int(y) - 6, pl - 6, 14, Qt.AlignmentFlag.AlignRight,
-                       str(int(max_v * i / 4)))
+            p.drawText(
+                0,
+                int(y) - 6,
+                pl - 6,
+                14,
+                Qt.AlignmentFlag.AlignRight,
+                str(int(max_v * i / 4)),
+            )
 
         # Area fill
         fill = QPainterPath()
@@ -241,8 +293,10 @@ class LineChart(QWidget):
         p.setPen(QPen(QColor("#355872"), 2.5))
         p.setBrush(Qt.BrushStyle.NoBrush)
         for i in range(n - 1):
-            p.drawLine(QPointF(px(i), py(self.values[i])),
-                       QPointF(px(i + 1), py(self.values[i + 1])))
+            p.drawLine(
+                QPointF(px(i), py(self.values[i])),
+                QPointF(px(i + 1), py(self.values[i + 1])),
+            )
 
         # Titik
         for i in range(n):
@@ -253,8 +307,14 @@ class LineChart(QWidget):
         # Label X
         p.setPen(QColor("#355872"))
         for i in range(n):
-            p.drawText(int(px(i)) - 20, H - pb + 6, 40, 16,
-                       Qt.AlignmentFlag.AlignHCenter, self.labels[i])
+            p.drawText(
+                int(px(i)) - 20,
+                H - pb + 6,
+                40,
+                16,
+                Qt.AlignmentFlag.AlignHCenter,
+                self.labels[i],
+            )
 
         # Legend
         ly = H - pb + 30
@@ -276,27 +336,54 @@ class LineChart(QWidget):
         # text legend
         p.setPen(QColor("#355872"))
 
-        p.drawText(int(start_x + line_w + spacing), ly, text_w, 18, Qt.AlignmentFlag.AlignLeft, "Defect")
+        p.drawText(
+            int(start_x + line_w + spacing),
+            ly,
+            text_w,
+            18,
+            Qt.AlignmentFlag.AlignLeft,
+            "Defect",
+        )
 
 
-#Sidebar
+# Sidebar
 class Sidebar(QFrame):
     MENU = [
-        ("ph.chart-line-up", "Dashboard", True),
-        ("mdi.package-variant-closed", "Produk", False),
-        ("fa5s.bullseye", "Target", False),
-        ("mdi.clipboard-text-outline", "Input Produksi", False),
-        ("mdi.chart-bar", "Pencapaian", False),
-        ("ph.warning", "Defect", False),
-        ("mdi.file-document-outline", "Laporan", False),
+        ("ph.chart-line-up", "Dashboard"),
+        ("mdi.package-variant-closed", "Produk"),
+        ("fa5s.bullseye", "Target"),
+        ("mdi.clipboard-text-outline", "Input Produksi"),
+        ("mdi.chart-bar", "Pencapaian"),
+        ("ph.warning", "Defect"),
+        ("mdi.file-document-outline", "Laporan"),
     ]
 
+    ACTIVE_STYLE = """
+        QFrame {
+            background: #9CD5FF;
+            border-radius: 10px;
+            border: none;
+        }
+    """
+    INACTIVE_STYLE = """
+        QFrame {
+            background: transparent;
+            border: none;
+        }
+        QFrame:hover {
+            background: rgba(156,213,255,0.12);
+            border-radius: 10px;
+        }
+    """
+
     logout_clicked = pyqtSignal()
+    menu_changed = pyqtSignal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setFixedWidth(230)
         self.setStyleSheet("QFrame { background:#355872; border:none; }")
+        self._menu_btns = {}
 
         lay = QVBoxLayout(self)
         lay.setContentsMargins(18, 10, 18, 10)
@@ -311,11 +398,20 @@ class Sidebar(QFrame):
         logo_lay.setSpacing(10)
         logo_ico = QLabel()
         pixmap = QPixmap("img/Logo Simonpro Putih.png")
-        logo_ico.setPixmap(pixmap.scaled(40, 40, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+        logo_ico.setPixmap(
+            pixmap.scaled(
+                40,
+                40,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+        )
         logo_ico.setAlignment(Qt.AlignmentFlag.AlignCenter)
         logo_ico.setMinimumHeight(50)
         logo_txt = QLabel("SiMonPro")
-        logo_txt.setStyleSheet("color:#F7F8F0; font-size:24px; font-weight:700; border:none; background:transparent;")
+        logo_txt.setStyleSheet(
+            "color:#F7F8F0; font-size:24px; font-weight:700; border:none; background:transparent;"
+        )
         logo_lay.addWidget(logo_ico)
         logo_lay.addWidget(logo_txt)
         logo_lay.addStretch()
@@ -327,52 +423,62 @@ class Sidebar(QFrame):
         lay.addWidget(sep)
         lay.addSpacing(8)
 
-        for icon_name, label, active in self.MENU:
-            lay.addWidget(self._menu_btn(icon_name, label, active))
+        for icon_name, label in self.MENU:
+            btn = self._menu_btn(icon_name, label)
+            self._menu_btns[label] = btn
+            btn.mousePressEvent = lambda event, lbl=label: (
+                self.menu_changed.emit(lbl)
+                if event.button() == Qt.MouseButton.LeftButton
+                else None
+            )
+            lay.addWidget(btn)
             lay.addSpacing(6)
+
+        self.set_active("Dashboard")
 
         lay.addStretch()
 
         # Logout button — clickable
-        logout_btn = self._menu_btn("mdi.logout", "Keluar", False)
+        logout_btn = self._menu_btn("mdi.logout", "Keluar")
         logout_btn.mousePressEvent = lambda event: (
             self.logout_clicked.emit()
-            if event.button() == Qt.MouseButton.LeftButton else None
+            if event.button() == Qt.MouseButton.LeftButton
+            else None
         )
         lay.addWidget(logout_btn)
         lay.addSpacing(16)
 
-    def _menu_btn(self, icon_name, label, active):
+    def set_active(self, label):
+        for lbl, btn in self._menu_btns.items():
+            icon_name = next((i for i, l in self.MENU if l == lbl), None)
+            if lbl == label:
+                btn.setStyleSheet(self.ACTIVE_STYLE)
+                ico_color = "#355872"
+                txt_color = "#355872"
+                txt_weight = "700"
+            else:
+                btn.setStyleSheet(self.INACTIVE_STYLE)
+                ico_color = "#F7F8F0"
+                txt_color = "#F7F8F0"
+                txt_weight = "600"
+            row_lay = btn.layout()
+            ico_lbl = row_lay.itemAt(0).widget()
+            txt_lbl = row_lay.itemAt(1).widget()
+            if icon_name:
+                ico_lbl.setPixmap(qta.icon(icon_name, color=ico_color).pixmap(24, 24))
+            txt_lbl.setStyleSheet(
+                f"color:{txt_color}; font-size:18px; font-weight:{txt_weight}; border:none; background:transparent;"
+            )
+
+    def _menu_btn(self, icon_name, label):
         btn = QFrame()
         btn.setFixedHeight(44)
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn.setStyleSheet(self.INACTIVE_STYLE)
 
-        if active:
-            btn.setStyleSheet(f"""
-                QFrame {{
-                    background: {"#9CD5FF"};
-                    border-radius: 10px;
-                    border: none;
-                }}
-            """)
-            ico_color  = "#355872"
-            txt_color  = "#355872"
-            txt_weight = "700"
-            
-        else:
-            btn.setStyleSheet("""
-                QFrame {
-                    background: transparent;
-                    border: none;
-                }
-                QFrame:hover {
-                    background: rgba(156,213,255,0.12);
-                    border-radius: 10px;
-                }
-            """)
-            ico_color  = "#F7F8F0"
-            txt_color  = "#F7F8F0"
-            txt_weight = "600"
+        ico_color = "#F7F8F0"
+        txt_color = "#F7F8F0"
+        txt_weight = "600"
 
         row = QHBoxLayout(btn)
         row.setContentsMargins(16, 0, 16, 0)
@@ -385,7 +491,9 @@ class Sidebar(QFrame):
         ico.setStyleSheet("border:none; background:transparent;")
 
         lbl = QLabel(label)
-        lbl.setStyleSheet(f"color:{txt_color}; font-size:18px; font-weight:{txt_weight}; border:none; background:transparent;")
+        lbl.setStyleSheet(
+            f"color:{txt_color}; font-size:18px; font-weight:{txt_weight}; border:none; background:transparent;"
+        )
 
         row.addWidget(ico)
         row.addWidget(lbl)
@@ -394,11 +502,12 @@ class Sidebar(QFrame):
         return btn
 
 
-#Topbar
+# Topbar
 class Topbar(QFrame):
     def __init__(self, user=None, parent=None):
         super().__init__(parent)
         self.user = user
+        self._drag_pos = None
         self.setFixedHeight(70)
         self.setStyleSheet("background:transparent; border:none;")
 
@@ -407,19 +516,25 @@ class Topbar(QFrame):
 
         name = user.username if user else "Admin"
         title = QLabel(f"Selamat Datang, {name}!")
-        title.setStyleSheet("color:#355872; font-size:36px; font-weight:700; border:none; background:transparent;")
+        title.setStyleSheet(
+            "color:#355872; font-size:36px; font-weight:700; border:none; background:transparent;"
+        )
         lay.addWidget(title)
         lay.addStretch()
 
-        #User info
+        # User info
         user_ico = QLabel()
         user_ico.setPixmap(qta.icon("fa5s.user-circle", color="#355872").pixmap(50, 50))
         user_ico.setStyleSheet("border:none; background:transparent;")
 
         name_lbl = QLabel(name)
-        name_lbl.setStyleSheet("color:#355872; font-size:18px; font-weight:700; border:none; background:transparent;")
+        name_lbl.setStyleSheet(
+            "color:#355872; font-size:18px; font-weight:700; border:none; background:transparent;"
+        )
         role_lbl = QLabel(user.role if user else "Admin")
-        role_lbl.setStyleSheet("color:#355872; font-size:14px; font-weight:400; border:none; background:transparent;")
+        role_lbl.setStyleSheet(
+            "color:#355872; font-size:14px; font-weight:400; border:none; background:transparent;"
+        )
 
         info_col = QFrame()
         info_col.setStyleSheet("background:transparent; border:none;")
@@ -432,6 +547,22 @@ class Topbar(QFrame):
         lay.addWidget(user_ico)
         lay.addSpacing(3)
         lay.addWidget(info_col)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._drag_pos = (
+                event.globalPosition().toPoint()
+                - self.window().frameGeometry().topLeft()
+            )
+            event.accept()
+
+    def mouseMoveEvent(self, event):
+        if event.buttons() == Qt.MouseButton.LeftButton and self._drag_pos:
+            self.window().move(event.globalPosition().toPoint() - self._drag_pos)
+            event.accept()
+
+    def mouseReleaseEvent(self, event):
+        self._drag_pos = None
 
 
 # Dashboard Window
@@ -450,26 +581,32 @@ class DashboardWindow(GradientBackground):
         self.load_data()
 
     def init_ui(self):
+        from src.views.produklistview import ProdukWindow
+
         root = QHBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
         # Sidebar
         self.sidebar = Sidebar()
-        if self.on_logout:
-            self.sidebar.logout_clicked.connect(self.on_logout)
+        self.sidebar.logout_clicked.connect(self.on_logout)
+        self.sidebar.menu_changed.connect(self.navigate_to)
+        self.sidebar.menu_changed.connect(self.sidebar.set_active)
         root.addWidget(self.sidebar)
 
-        # Konten
-        content = QWidget()
-        content.setStyleSheet("background:transparent;")
-        c_lay = QVBoxLayout(content)
-        c_lay.setContentsMargins(0, 0, 0, 0)
-        c_lay.setSpacing(0)
-        self.topbar = Topbar(user=self.user)
-        c_lay.addWidget(self.topbar)
+        # Stacked pages
+        self.pages = QStackedWidget()
+        self.pages.setStyleSheet("background:transparent; border:none;")
 
-        # Scroll
+        # Page 0 — Dashboard
+        dashboard_page = QWidget()
+        dashboard_page.setStyleSheet("background:transparent;")
+        d_lay = QVBoxLayout(dashboard_page)
+        d_lay.setContentsMargins(0, 0, 0, 0)
+        d_lay.setSpacing(0)
+        self.topbar = Topbar(user=self.user)
+        d_lay.addWidget(self.topbar)
+
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setStyleSheet("QScrollArea { background:transparent; border:none; }")
@@ -481,25 +618,32 @@ class DashboardWindow(GradientBackground):
         inner_lay.setContentsMargins(28, 8, 28, 28)
         inner_lay.setSpacing(18)
 
-        # Sub-judul
         sub = QLabel("Ringkasan Performa Produksi")
-        sub.setStyleSheet("color:#7AAACE; font-size:18px; border:none; background:transparent;")
+        sub.setStyleSheet(
+            "color:#7AAACE; font-size:18px; border:none; background:transparent;"
+        )
         inner_lay.addWidget(sub)
 
-        # Stat cards — simpan referensi agar bisa di-update
         self.stat_row = QHBoxLayout()
         self.stat_row.setSpacing(14)
-        self.card_total_produksi = StatCard("mdi.cube-outline",         "Total Produksi",    "0", "-")
-        self.card_pencapaian = StatCard("mdi.trending-up",          "Pencapaian Target", "0%",  "-")
-        self.card_defect = StatCard("mdi.alert-circle-outline", "Tingkat Defect",    "0%",   "-")
-        self.card_jumlah_produk = StatCard("mdi.package-variant",      "Jumlah Produk",     "0",     "-")
+        self.card_total_produksi = StatCard(
+            "mdi.cube-outline", "Total Produksi", "0", "-"
+        )
+        self.card_pencapaian = StatCard(
+            "mdi.trending-up", "Pencapaian Target", "0%", "-"
+        )
+        self.card_defect = StatCard(
+            "mdi.alert-circle-outline", "Tingkat Defect", "0%", "-"
+        )
+        self.card_jumlah_produk = StatCard(
+            "mdi.package-variant", "Jumlah Produk", "0", "-"
+        )
         self.stat_row.addWidget(self.card_total_produksi)
         self.stat_row.addWidget(self.card_pencapaian)
         self.stat_row.addWidget(self.card_defect)
         self.stat_row.addWidget(self.card_jumlah_produk)
         inner_lay.addLayout(self.stat_row)
 
-        # Charts — simpan referensi agar bisa di-update
         chart_row = QHBoxLayout()
         chart_row.setSpacing(14)
 
@@ -509,7 +653,9 @@ class DashboardWindow(GradientBackground):
         bar_lay.setContentsMargins(18, 16, 18, 16)
         bar_lay.setSpacing(10)
         bar_title = QLabel("Pencapaian Target")
-        bar_title.setStyleSheet("color:#355872; font-size:18px; font-weight:700; border:none; background:transparent;")
+        bar_title.setStyleSheet(
+            "color:#355872; font-size:18px; font-weight:700; border:none; background:transparent;"
+        )
         bar_lay.addWidget(bar_title, alignment=Qt.AlignmentFlag.AlignHCenter)
         bar_lay.addWidget(self.bar_chart)
 
@@ -519,7 +665,9 @@ class DashboardWindow(GradientBackground):
         line_lay.setContentsMargins(18, 16, 18, 16)
         line_lay.setSpacing(10)
         line_title = QLabel("Tingkat Defect")
-        line_title.setStyleSheet("color:#355872; font-size:18px; font-weight:700; border:none; background:transparent;")
+        line_title.setStyleSheet(
+            "color:#355872; font-size:18px; font-weight:700; border:none; background:transparent;"
+        )
         line_lay.addWidget(line_title, alignment=Qt.AlignmentFlag.AlignHCenter)
         line_lay.addWidget(self.line_chart)
 
@@ -529,8 +677,27 @@ class DashboardWindow(GradientBackground):
         inner_lay.addStretch()
 
         scroll.setWidget(inner)
-        c_lay.addWidget(scroll)
-        root.addWidget(content)
+        d_lay.addWidget(scroll)
+
+        # Page 1 — Produk
+        self.produk_page = ProdukWindow(
+            user=self.user,
+            session=self.session,
+            on_logout=self.on_logout,
+            embedded=True,
+        )
+        self.pages.addWidget(dashboard_page)
+        self.pages.addWidget(self.produk_page)
+
+        root.addWidget(self.pages)
+
+    def navigate_to(self, label):
+        if label == "Produk":
+            self.pages.setCurrentIndex(1)
+        else:
+            self.pages.setCurrentIndex(0)
+            if label == "Dashboard":
+                self.load_data()
 
     def load_data(self):
         try:
@@ -556,29 +723,11 @@ class DashboardWindow(GradientBackground):
 
             # Update charts
             self.bar_chart.set_data(
-                charts["labels"],
-                charts["target"],
-                charts["actual"]
+                charts["labels"], charts["target"], charts["actual"]
             )
-            self.line_chart.set_data(
-                charts["labels"],
-                charts["defect"]
-            )
+            self.line_chart.set_data(charts["labels"], charts["defect"])
         except Exception as e:
             print(f"[Dashboard] Gagal memuat data: {e}")
-
-    def mousePressEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton:
-            self._drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
-            event.accept()
-
-    def mouseMoveEvent(self, event):
-        if event.buttons() == Qt.MouseButton.LeftButton and self._drag_pos:
-            self.move(event.globalPosition().toPoint() - self._drag_pos)
-            event.accept()
-
-    def mouseReleaseEvent(self, event):
-        self._drag_pos = None
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Escape:
