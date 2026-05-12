@@ -29,7 +29,6 @@ from src.views.TambahProduk import TambahProdukDialog
 from src.views.EditProduk import EditProdukDialog
 from src.database.db_connection import get_db
 from src.services.ProdukService import ProdukService
-from src.services.KategoriService import KategoriService
 from src.models.Produk import Produk
 from src.utils.image_utils import load_product_pixmap
 
@@ -688,45 +687,27 @@ class ProdukWindow(GradientBackground):
         if not self.session:
             return
 
-        try:
-            dialog = EditKategoriDialog(parent=self)
-            controller = KategoriController(self.session)
-            controller.set_viewer(dialog)
+        dialog = EditKategoriDialog(parent=self)
+        controller = KategoriController(self.session)
+        controller.set_viewer(dialog)
 
-            dialog.simpanClicked.connect(controller.submit_update_kategori)
-            dialog.hapusClicked.connect(controller.submit_hapus_kategori)
-            dialog.tambahClicked.connect(controller.submit_tambah_kategori)
-            dialog.refreshRequested.connect(controller.refresh_kategori_list)
+        dialog.simpanClicked.connect(controller.submit_update_kategori)
+        dialog.hapusClicked.connect(controller.submit_hapus_kategori)
+        dialog.tambahClicked.connect(controller.submit_tambah_kategori)
 
-            controller.request_edit_kategori()
-        except Exception as e:
-            from PyQt6.QtWidgets import QMessageBox
-
-            QMessageBox.critical(self, "Error", f"Gagal membuka dialog kategori:\n{e}")
+        controller.request_edit_kategori()
+        if dialog.exec():
+            self.load_produk()
 
     def _on_tambah_produk(self):
+        kode_produk = "Akan tergenerate otomatis"
+        kategori_list = []
         try:
-            next_kode = self._produk_service.get_next_kode_produk()
-
-            # Ambil daftar kategori dari database
-            kategori_service = KategoriService()
-            daftar_kategori = kategori_service.getDaftarKategori()
-            categories = [k.nama_kategori for k in daftar_kategori]
-
-            dialog = TambahProdukDialog(
-                kode_produk=next_kode,
-                categories=categories,
-                parent=self
-            )
-            dialog.exec()
-            self.load_produk()
+            kode_produk = self._produk_service.get_next_kode_produk()
         except Exception as e:
-            from PyQt6.QtWidgets import QMessageBox
-
-            QMessageBox.critical(self, "Error", f"Gagal membuka dialog tambah produk:\n{e}")
-
-    def _on_edit_produk(self, produk):
+            print(f"[ProdukWindow] Gagal generate kode produk: {e}")
         try:
+            kategori_list = self._produk_service.get_daftar_kategori()
             # Ambil daftar kategori dari database
             kategori_service = KategoriService()
             daftar_kategori = kategori_service.getDaftarKategori()
@@ -740,9 +721,25 @@ class ProdukWindow(GradientBackground):
             dialog.exec()
             self.load_produk()
         except Exception as e:
-            from PyQt6.QtWidgets import QMessageBox
+            print(f"[ProdukWindow] Gagal memuat kategori: {e}")
 
-            QMessageBox.critical(self, "Error", f"Gagal membuka dialog edit produk:\n{e}")
+        dialog = TambahProdukDialog(
+            kode_produk=kode_produk,
+            categories=kategori_list,
+            parent=self,
+        )
+        dialog.btn_simpan.clicked.connect(dialog.accept)
+        if dialog.exec():
+            self.load_produk()
+
+    def _on_edit_produk(self, produk: Produk):
+        if not produk:
+            return
+        dialog = EditProdukDialog(produk=produk, parent=self)
+        dialog.btn_simpan.clicked.connect(dialog.accept)
+        dialog.btn_hapus.clicked.connect(dialog.accept)
+        if dialog.exec():
+            self.load_produk()
 
     def navigate_to(self, label):
         # Saat embedded, delegasikan ke DashboardWindow via parent

@@ -1,19 +1,18 @@
-import sys
 import os
+import sys
 
-os.environ['QT_API'] = 'pyqt6'
+os.environ["QT_API"] = "pyqt6"
 
-from PyQt6.QtWidgets import (
-    QApplication, QDialog, QVBoxLayout, QHBoxLayout,
-    QLabel, QComboBox, QLineEdit, QPushButton, QFrame, QWidget,
-)
-from PyQt6.QtWidgets import QListView
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import (
-    QPainter, QRadialGradient, QColor,
-    QBrush, QPainterPath, QPixmap
-)
 import qtawesome as qta
+from PyQt6.QtCore import QSize, Qt, pyqtSignal
+from PyQt6.QtGui import (QBrush, QColor, QPainter, QPainterPath, QPixmap,
+                         QRadialGradient)
+from PyQt6.QtWidgets import (QApplication, QComboBox, QDialog, QFrame,
+                             QHBoxLayout, QLabel, QLineEdit, QListView,
+                             QPushButton, QVBoxLayout, QWidget)
+
+from src.views.messageview import SuccessPopup
+
 
 class GradientDialog(QDialog):
     RADIUS = 20
@@ -23,42 +22,43 @@ class GradientDialog(QDialog):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
         path = QPainterPath()
-        path.addRoundedRect(
-            0, 0, self.width(), self.height(),
-            self.RADIUS, self.RADIUS
-        )
+        path.addRoundedRect(0, 0, self.width(), self.height(), self.RADIUS, self.RADIUS)
         painter.setClipPath(path)
 
-        gradient = QRadialGradient(
-            self.width() / 2,
-            self.height() / 2,
-            self.width() 
-        )
+        gradient = QRadialGradient(self.width() / 2, self.height() / 2, self.width())
 
         gradient.setColorAt(0.0, QColor("#F7F8F0"))
         gradient.setColorAt(0.5, QColor("#DCEEF4"))
-        gradient.setColorAt(1.0, QColor("#9CD5FF"))   
+        gradient.setColorAt(1.0, QColor("#9CD5FF"))
         painter.fillRect(self.rect(), QBrush(gradient))
 
-class EditKategoriDialog(GradientDialog):
 
+class EditKategoriDialog(GradientDialog):
     simpanClicked = pyqtSignal(int, str)
     hapusClicked = pyqtSignal(int)
+    tambahClicked = pyqtSignal(str)
+
+    ADD_ITEM_TEXT = "Tambah Kategori Baru"
+    ADD_ITEM_DATA = "__ADD_NEW__"
 
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
+        self.setWindowFlags(
+            Qt.WindowType.Dialog
+            | Qt.WindowType.FramelessWindowHint
+        )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 
-        self.setFixedSize(760, 380)
+        self.setFixedSize(690, 380)
 
         self._drag_pos = None
+        self.is_add_mode = False
         self.init_ui()
 
     def init_ui(self):
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(28, 20, 28, 20)
+        main_layout.setContentsMargins(28, 10, 36, 10)
 
         # path icon (lebih aman)
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
@@ -67,8 +67,29 @@ class EditKategoriDialog(GradientDialog):
         card.setStyleSheet("background: transparent; border-radius: 28px;")
 
         layout = QVBoxLayout(card)
-        layout.setContentsMargins(70, 28, 70, 30)
+        layout.setContentsMargins(38, 18, 38, 28)
         layout.setSpacing(8)
+
+        self.btn_close = QPushButton(self)
+        self.btn_close.setFixedSize(40, 40)
+        self.btn_close.setIconSize(QSize(28, 28))
+        self.btn_close.move(620, 18)
+        self.btn_close.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_close.setIcon(qta.icon("fa5s.times", color="#355872"))
+        self.btn_close.setStyleSheet("""
+            QPushButton {
+                background: transparent;
+                border: none;
+                border-radius: 16px;
+            }
+            QPushButton:hover {
+                background-color: rgba(156, 213, 255, 0.25);
+            }
+            QPushButton:pressed {
+                background-color: rgba(156, 213, 255, 0.4);
+            }
+        """)
+        self.btn_close.clicked.connect(self.reject)
 
         # Title
         title = QLabel("Edit Kategori")
@@ -76,7 +97,7 @@ class EditKategoriDialog(GradientDialog):
         title.setStyleSheet("""
             QLabel {
                 color: #355872;
-                font-size: 24px;
+                font-size: 36px;
                 font-weight: 700;
                 letter-spacing: 0.5px;
                 border: none;
@@ -98,7 +119,7 @@ class EditKategoriDialog(GradientDialog):
             return lbl
 
         layout.addWidget(create_label("Nama Kategori"))
-        layout.addSpacing(1)
+        layout.addSpacing(0)
 
         self.combo_kategori = QComboBox()
         self.combo_kategori.setView(QListView())
@@ -121,13 +142,13 @@ class EditKategoriDialog(GradientDialog):
                 padding-right: 40px;
                 font-size: 16px;
                 color: #355872;
-                background: transparent;
+                background: #FFFFFF;
             }}
 
             QComboBox:hover {{
                 background-color: rgba(156, 213, 255, 0.15);
             }}
-            
+
             QComboBox::drop-down {{
                 border: none;
                 width: 30px;
@@ -162,7 +183,7 @@ class EditKategoriDialog(GradientDialog):
                 color: #355872;
                 font-weight: 600;
             }}
-            
+
             QComboBox QAbstractItemView::item {{
                 min-height: 30px;
                 padding-left: 10px;
@@ -180,7 +201,7 @@ class EditKategoriDialog(GradientDialog):
                 color: #355872;
                 font-weight: 600;
             }}
-            
+
             QListView {{
                 border: 1px solid #355872;
                 background: #F7F8F0;
@@ -193,16 +214,14 @@ class EditKategoriDialog(GradientDialog):
                 border-radius: 6px;
                 font-size: 16px;
                 color: #355872;
-            }}            
+            }}
         """)
 
-        layout.addWidget(
-            self.combo_kategori,
-            alignment=Qt.AlignmentFlag.AlignCenter
-        )
+        layout.addWidget(self.combo_kategori, alignment=Qt.AlignmentFlag.AlignCenter)
+        self.combo_kategori.currentIndexChanged.connect(self._on_kategori_changed)
 
         layout.addWidget(create_label("Nama Kategori Baru"))
-        layout.addSpacing(4)
+        layout.addSpacing(0)
 
         self.input_baru = QLineEdit()
         self.input_baru.setFixedHeight(46)
@@ -214,15 +233,12 @@ class EditKategoriDialog(GradientDialog):
                 border-radius: 15px;
                 padding: 0 12px;
                 font-size: 16px;
-                background: transparent;
+                background: #FFFFFF;
                 color: #355872;
             }
         """)
 
-        layout.addWidget(
-            self.input_baru,
-            alignment=Qt.AlignmentFlag.AlignCenter
-        )
+        layout.addWidget(self.input_baru, alignment=Qt.AlignmentFlag.AlignCenter)
 
         self.message_label = QLabel("")
         self.message_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -257,7 +273,7 @@ class EditKategoriDialog(GradientDialog):
         self.btn_hapus = QPushButton("Hapus Kategori")
         self.btn_hapus.setFixedSize(150, 46)
         self.btn_hapus.setIcon(qta.icon("fa5s.trash", color="#355872"))
-        self.btn_hapus.setStyleSheet("""
+        self._btn_hapus_style = """
             QPushButton {
                 background-color: #FF8D8D;
                 color: #355872;
@@ -274,7 +290,27 @@ class EditKategoriDialog(GradientDialog):
             QPushButton:pressed {
                 background-color: #FFC0C0;
             }
-        """)
+        """
+        self._btn_hapus_disabled_style = """
+            QPushButton {
+                background-color: rgba(255, 141, 141, 0.5);
+                color: rgba(53, 88, 114, 0.6);
+                font-size: 14px;
+                font-weight: 700;
+                border: 1.5px solid rgba(53, 88, 114, 0.5);
+                border-radius: 15px;
+            }
+            QPushButton:hover {
+                background-color: rgba(255, 192, 192, 0.6);
+                border: 1.5px solid rgba(53, 88, 114, 0.5);
+                color: rgba(53, 88, 114, 0.6);
+            }
+            QPushButton:pressed {
+                background-color: rgba(255, 192, 192, 0.7);
+            }
+        """
+        self.btn_hapus.setStyleSheet(self._btn_hapus_style)
+        self.btn_hapus.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_hapus.clicked.connect(self._on_hapus)
 
         btn_layout.addStretch()
@@ -286,23 +322,84 @@ class EditKategoriDialog(GradientDialog):
         main_layout.addWidget(card)
 
     def tampilkan_form_edit(self, kategori_tuples):
+        self.combo_kategori.blockSignals(True)
         self.combo_kategori.clear()
 
         for kid, nama in kategori_tuples:
             self.combo_kategori.addItem(nama, kid)
+        self.combo_kategori.addItem(self.ADD_ITEM_TEXT, self.ADD_ITEM_DATA)
 
-        self.exec()
+        if self.combo_kategori.count() > 0:
+            self.combo_kategori.setCurrentIndex(0)
+        self.combo_kategori.blockSignals(False)
+        self._set_add_mode(
+            self.combo_kategori.currentData() == self.ADD_ITEM_DATA
+        )
+        self.message_label.setText("")
 
     def _on_simpan(self):
-        kid = self.combo_kategori.currentData()
         nama = self.input_baru.text().strip()
+        if self.is_add_mode:
+            self.tambahClicked.emit(nama)
+            return
 
+        kid = self.combo_kategori.currentData()
         self.simpanClicked.emit(kid, nama)
 
     def _on_hapus(self):
-        kid = self.combo_kategori.currentData()
+        if self.is_add_mode:
+            self._show_inline_error("Tidak bisa hapus saat tambah kategori.")
+            return
 
+        kid = self.combo_kategori.currentData()
         self.hapusClicked.emit(kid)
+
+    def _on_kategori_changed(self, index):
+        is_add = self.combo_kategori.itemData(index) == self.ADD_ITEM_DATA
+        self._set_add_mode(is_add)
+
+    def _set_add_mode(self, enabled: bool) -> None:
+        self.is_add_mode = enabled
+        if enabled:
+            self.btn_hapus.setStyleSheet(self._btn_hapus_disabled_style)
+            self.btn_hapus.setCursor(Qt.CursorShape.ForbiddenCursor)
+            self.input_baru.clear()
+            self._show_inline_error("")
+        else:
+            self.btn_hapus.setStyleSheet(self._btn_hapus_style)
+            self.btn_hapus.setCursor(Qt.CursorShape.PointingHandCursor)
+            self._show_inline_error("")
+
+    def _show_inline_error(self, msg: str) -> None:
+        if msg:
+            self.message_label.setStyleSheet(
+                "color: #C0392B; font-size: 12px; font-weight: 600; "
+                "border: none; background: transparent;"
+            )
+            self.message_label.setText(msg)
+            return
+        self.message_label.setText("")
+
+    # Display error message in red
+    def tampilkan_error(self, msg: str):
+        if self.is_add_mode:
+            self._show_inline_error(msg)
+            return
+        self.message_label.setStyleSheet(
+            "color: #C0392B; font-size: 14px; font-weight: 600; "
+            "border: none; background: transparent;"
+        )
+        self.message_label.setText(msg)
+
+    # Display success message in green, then close dialog
+    def tampilkan_success(self, msg: str):
+        popup_parent = self.parent().window() if self.parent() else None
+        if not hasattr(self, "_success_popup") or self._success_popup is None:
+            self._success_popup = SuccessPopup(parent=popup_parent)
+        else:
+            self._success_popup.setParent(popup_parent)
+        self._success_popup.show_message(msg)
+        self.accept()
 
 
 if __name__ == "__main__":
@@ -317,9 +414,8 @@ if __name__ == "__main__":
         (3, "PakaianDalam"),
     ]
 
-    dialog.tampilkan_form_edit(data)
-
     dialog.simpanClicked.connect(lambda i, n: print(f"Simpan {i} -> {n}"))
     dialog.hapusClicked.connect(lambda i: print(f"Hapus {i}"))
 
-    sys.exit(app.exec())
+    dialog.tampilkan_form_edit(data)
+    dialog.exec()
