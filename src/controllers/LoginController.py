@@ -12,6 +12,8 @@ class LoginController:
 
         result = self.auth_service.validate_credentials(username, password)
         if result:
-            self.on_login_success()
+            user = self.auth_service.get_current_user()
+            session = self.auth_service.get_current_session()
+            self.on_login_success(user, session)
         else:
             self.login_view.show_error("Login gagal! Username atau password salah")
