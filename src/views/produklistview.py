@@ -23,23 +23,16 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-
-class DimOverlay(QWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setStyleSheet("background: transparent;")
-
-    def paintEvent(self, event):
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        painter.fillRect(self.rect(), QColor(0, 0, 0, 120))
-
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        self.setGeometry(0, 0, self.parent().width(), self.parent().height())
-
 from src.views.KategoriView import EditKategoriDialog
 from src.controllers.KategoriController import KategoriController
+from src.views.KategoriView import EditKategoriDialog
+from src.views.TambahProduk import TambahProdukDialog
+from src.views.EditProduk import EditProdukDialog
+from src.database.db_connection import get_db
+from src.services.ProdukService import ProdukService
+from src.services.KategoriService import KategoriService
+from src.models.Produk import Produk
+from src.utils.image_utils import load_product_pixmap
 
 
 class GradientBackground(QWidget):
@@ -84,8 +77,9 @@ class ImagePlaceholder(QFrame):
 
 
 class ProductCard(Card):
-    def __init__(self, name, code, category, description, parent=None):
+    def __init__(self, produk, parent=None, on_edit_clicked=None):
         super().__init__(parent)
+        self.produk = produk
         self.setFixedWidth(280)
         self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
 
@@ -93,17 +87,29 @@ class ProductCard(Card):
         lay.setContentsMargins(14, 14, 14, 14)
         lay.setSpacing(5)
 
-        lay.addWidget(ImagePlaceholder())
+        pixmap = load_product_pixmap(produk.gambar) if produk.gambar else None
+        if pixmap:
+            img_label = QLabel()
+            img_label.setPixmap(pixmap)
+            img_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            img_label.setFixedHeight(160)
+            img_label.setStyleSheet(
+                "background: #EAF6FF; border-radius: 12px; border: 1px solid #35587226;"
+            )
+            lay.addWidget(img_label)
+        else:
+            lay.addWidget(ImagePlaceholder())
 
         name_row = QHBoxLayout()
         name_row.setSpacing(6)
 
-        lbl_name = QLabel(name)
+        lbl_name = QLabel(produk.nama_produk)
         lbl_name.setStyleSheet(
             "color: #355872; font-size: 18px; font-weight: 700; border: none; background: transparent;"
         )
         lbl_name.setWordWrap(False)
 
+        code = f"PRD-{produk.produk_id:03d}"
         lbl_code = QLabel(code)
         lbl_code.setStyleSheet(
             "color: #355872; font-size: 12px; font-weight: 600; "
@@ -117,13 +123,14 @@ class ProductCard(Card):
         name_row.addWidget(lbl_code)
         lay.addLayout(name_row)
 
-        lbl_cat = QLabel(category)
+        lbl_cat = QLabel(produk.nama_kategori)
         lbl_cat.setStyleSheet(
             "color: #355872; font-size: 15px; border: none; background: transparent; font-weight: 600;"
         )
         lay.addWidget(lbl_cat)
 
-        lbl_desc = QLabel(description)
+        desc = produk.deskripsi_produk or "Tidak ada deskripsi."
+        lbl_desc = QLabel(desc)
         lbl_desc.setStyleSheet(
             "color: #355872; font-size: 12px; border: none; background: transparent; font-weight: 500;"
         )
@@ -161,6 +168,8 @@ class ProductCard(Card):
         shadow.setOffset(0, 4)
         shadow.setColor(QColor(53, 88, 114, 80))
         btn_edit.setGraphicsEffect(shadow)
+        if on_edit_clicked:
+            btn_edit.clicked.connect(lambda checked, p=produk: on_edit_clicked(p))
         lay.addWidget(btn_edit, alignment=Qt.AlignmentFlag.AlignHCenter)
 
 
@@ -265,7 +274,9 @@ class Sidebar(QFrame):
 
     def set_active(self, label):
         for lbl, btn in self._menu_btns.items():
-            icon_name = next((i for i, l in self.MENU if l == lbl), None)
+            icon_name = next(
+                (i for i, label_text in self.MENU if label_text == lbl), None
+            )
             if lbl == label:
                 btn.setStyleSheet(self.ACTIVE_STYLE)
                 ico_color = "#355872"
@@ -379,6 +390,8 @@ class Topbar(QFrame):
 
 
 class SearchBar(QFrame):
+    textChanged = pyqtSignal(str)
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setFixedHeight(46)
@@ -414,6 +427,7 @@ class SearchBar(QFrame):
             }
             """
         )
+        self.input.textChanged.connect(self.textChanged.emit)
 
         lay.addWidget(ico)
         lay.addWidget(self.input)
@@ -421,6 +435,8 @@ class SearchBar(QFrame):
 
 class Toolbar(QFrame):
     edit_kategori_clicked = pyqtSignal()
+    tambah_produk_clicked = pyqtSignal()
+    search_changed = pyqtSignal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -431,8 +447,9 @@ class Toolbar(QFrame):
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(12)
 
-        search = SearchBar()
-        lay.addWidget(search, stretch=1)
+        self.search_bar = SearchBar()
+        self.search_bar.textChanged.connect(self.search_changed.emit)
+        lay.addWidget(self.search_bar, stretch=1)
 
         self.btn_cat = QPushButton()
         self.btn_cat.setText("Edit Kategori")
@@ -458,13 +475,13 @@ class Toolbar(QFrame):
         )
         self.btn_cat.clicked.connect(self.edit_kategori_clicked.emit)
 
-        btn_add = QPushButton()
-        btn_add.setText(" Tambah Produk")
-        btn_add.setIcon(qta.icon("mdi.plus", color="#FFFFFF"))
-        btn_add.setIconSize(QSize(20, 20))
-        btn_add.setFixedHeight(46)
-        btn_add.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn_add.setStyleSheet(
+        self.btn_add = QPushButton()
+        self.btn_add.setText(" Tambah Produk")
+        self.btn_add.setIcon(qta.icon("mdi.plus", color="#FFFFFF"))
+        self.btn_add.setIconSize(QSize(20, 20))
+        self.btn_add.setFixedHeight(46)
+        self.btn_add.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_add.setStyleSheet(
             """
             QPushButton {
                 background-color: #355872;
@@ -479,12 +496,15 @@ class Toolbar(QFrame):
             }
             """
         )
+        self.btn_add.clicked.connect(self.tambah_produk_clicked.emit)
 
         lay.addWidget(self.btn_cat)
-        lay.addWidget(btn_add)
+        lay.addWidget(self.btn_add)
 
 
 class FilterBar(QFrame):
+    urutkan_clicked = pyqtSignal()
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setStyleSheet("background: transparent; border: none;")
@@ -518,80 +538,50 @@ class FilterBar(QFrame):
             )
             return btn
 
-        lay.addWidget(_filter_btn("mdi.sort", "Urutkan"))
+        self.btn_urutkan = _filter_btn("mdi.sort-ascending", "Urutkan")
+        self.btn_urutkan.clicked.connect(self.urutkan_clicked.emit)
+        lay.addWidget(self.btn_urutkan)
         lay.addWidget(_filter_btn("mdi.filter-outline", "Kelompokkan"))
         lay.addStretch()
 
 
-PRODUCTS = [
-    (
-        "Kaos Polos",
-        "PRD-001",
-        "Atasan",
-        "Kaos polos berbahan katun combed 30s yang lembut, adem, dan mampu menyerap keringat dengan baik.",
-    ),
-    (
-        "Hoodie",
-        "PRD-002",
-        "Atasan",
-        "Hoodie dengan bahan fleece dan desain streetwear modern yang mengikuti tren anak generasi sekarang.",
-    ),
-    (
-        "Kemeja",
-        "PRD-003",
-        "Atasan",
-        "Kemeja flanel dengan motif kotak-kotak klasik yang tidak lekang oleh waktu. Tebal dan nyaman dipakai.",
-    ),
-    (
-        "Dress Floral",
-        "PRD-004",
-        "Dress",
-        "Dress wanita dengan motif floral yang memberikan kesan segar dan feminin. Menggunakan bahan ringan dan breathable.",
-    ),
-    (
-        "Rok Plisket",
-        "PRD-005",
-        "Bawahan",
-        "Rok plisket dengan desain elegan dan bahan yang jatuh dengan indah. Cocok untuk acara formal maupun kasual.",
-    ),
-    (
-        "Celana Jeans",
-        "PRD-006",
-        "Bawahan",
-        "Celana jeans model slim fit yang mengikuti bentuk kaki namun tetap nyaman karena bahan stretch yang fleksibel.",
-    ),
-    (
-        "Jaket Dilan",
-        "PRD-007",
-        "Outerwear",
-        "Jaket denim dengan desain klasik yang selalu relevan sepanjang waktu. Dibuat dari bahan denim berkualitas tinggi.",
-    ),
-    (
-        "Blouse",
-        "PRD-008",
-        "Atasan",
-        "Blouse wanita dengan desain sederhana namun elegan, cocok untuk digunakan di lingkungan kerja.",
-    ),
-]
-
-
 class ProductGrid(QWidget):
-    def __init__(self, parent=None):
+    def __init__(self, products=None, parent=None, on_edit_clicked=None):
         super().__init__(parent)
         self.setStyleSheet("background: transparent;")
+        self._grid = QGridLayout(self)
+        self._grid.setContentsMargins(0, 0, 0, 0)
+        self._grid.setSpacing(16)
+        self.cols = 4
+        self._on_edit_clicked = on_edit_clicked
+        if products:
+            self.set_products(products)
 
-        grid = QGridLayout(self)
-        grid.setContentsMargins(0, 0, 0, 0)
-        grid.setSpacing(16)
+    def set_products(self, products: list[Produk]):
+        # Bersihkan widget lama
+        while self._grid.count():
+            item = self._grid.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
 
-        cols = 4
-        for idx, (name, code, cat, desc) in enumerate(PRODUCTS):
-            row, col = divmod(idx, cols)
-            grid.addWidget(ProductCard(name, code, cat, desc), row, col)
+        for idx, produk in enumerate(products):
+            row, col = divmod(idx, self.cols)
+            card = ProductCard(
+                produk,
+                parent=self,
+                on_edit_clicked=self._on_edit_clicked,
+            )
+            self._grid.addWidget(card, row, col)
 
-        for col in range(len(PRODUCTS) % cols, cols):
-            if len(PRODUCTS) % cols != 0:
-                grid.setColumnStretch(col, 1)
+        # Atur stretch pada kolom kosong di baris terakhir
+        remainder = len(products) % self.cols
+        if remainder != 0:
+            for col in range(remainder, self.cols):
+                self._grid.setColumnStretch(col, 1)
+        else:
+            # Hapus stretch yang mungkin ada sebelumnya
+            for col in range(self.cols):
+                self._grid.setColumnStretch(col, 0)
 
 
 class ProdukWindow(GradientBackground):
@@ -609,12 +599,37 @@ class ProdukWindow(GradientBackground):
         self.embedded = embedded
         self._drag_pos = None
 
+        # Inisialisasi service untuk mengambil data produk dari database
+        db = get_db()
+        self._produk_service = ProdukService(db)
+
         if not embedded:
             self.setWindowTitle("SiMonPro - Kelola Data Produk")
             self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
             self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 
         self.init_ui()
+        self.load_produk()
+
+    def load_produk(self, query: str | None = None):
+        try:
+            if query and query.strip():
+                produk_list = self._produk_service.cari_produk(query.strip())
+            else:
+                produk_list = self._produk_service.get_daftar_produk()
+            if getattr(self, '_sort_descending', False):
+                produk_list.reverse()
+            self.product_grid.set_products(produk_list)
+        except Exception as e:
+            print(f"[ProdukWindow] Gagal memuat data produk: {e}")
+
+    def _toggle_sort(self):
+        self._sort_descending = not getattr(self, '_sort_descending', False)
+        self.load_produk()
+
+    def _on_search_changed(self, text: str):
+        """Pencarian realtime saat user mengetik di search box."""
+        self.load_produk(query=text)
 
     def init_ui(self):
         root = QHBoxLayout(self)
@@ -643,8 +658,12 @@ class ProdukWindow(GradientBackground):
         sticky_lay.setSpacing(16)
         self.toolbar = Toolbar()
         self.toolbar.edit_kategori_clicked.connect(self._on_edit_kategori)
+        self.toolbar.tambah_produk_clicked.connect(self._on_tambah_produk)
+        self.toolbar.search_changed.connect(self._on_search_changed)
         sticky_lay.addWidget(self.toolbar)
-        sticky_lay.addWidget(FilterBar())
+        self.filter_bar = FilterBar()
+        self.filter_bar.urutkan_clicked.connect(self._toggle_sort)
+        sticky_lay.addWidget(self.filter_bar)
         c_lay.addWidget(sticky)
 
         scroll = QScrollArea()
@@ -658,7 +677,8 @@ class ProdukWindow(GradientBackground):
         inner_lay.setContentsMargins(28, 12, 28, 28)
         inner_lay.setSpacing(8)
 
-        inner_lay.addWidget(ProductGrid())
+        self.product_grid = ProductGrid(on_edit_clicked=self._on_edit_produk)
+        inner_lay.addWidget(self.product_grid)
         inner_lay.addStretch()
 
         scroll.setWidget(inner)
@@ -669,28 +689,14 @@ class ProdukWindow(GradientBackground):
         if not self.session:
             return
 
-        parent_window = self.window()
-
-        overlay = DimOverlay(parent_window)
-        overlay.setGeometry(parent_window.rect())
-        overlay.show()
-        overlay.raise_()
-
-        dialog = EditKategoriDialog(parent=parent_window)
+        dialog = EditKategoriDialog(parent=self)
         controller = KategoriController(self.session)
         controller.set_viewer(dialog)
 
         dialog.simpanClicked.connect(controller.submit_update_kategori)
         dialog.hapusClicked.connect(controller.submit_hapus_kategori)
-        dialog.tambahClicked.connect(controller.submit_tambah_kategori)
 
-        try:
-            controller.request_edit_kategori()
-        except Exception as e:
-            dialog.tampilkan_error(f"Gagal memuat data kategori: {e}")
-
-        dialog.exec()
-        overlay.close()
+        controller.request_edit_kategori()
 
     def navigate_to(self, label):
         # Saat embedded, delegasikan ke DashboardWindow via parent

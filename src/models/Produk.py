@@ -65,13 +65,15 @@ class Produk:
         satuan: str,
         gambar: str,
         nama_kategori: str,
-    ) -> None:
-        db.execute_update(
+    ) -> int:
+        rows = db.execute_query(
             "INSERT INTO produk "
             "(nama_produk, deskripsi_produk, satuan, gambar, status_aktif, nama_kategori) "
-            "VALUES (%s, %s, %s, %s, TRUE, %s)",
+            "VALUES (%s, %s, %s, %s, TRUE, %s) "
+            "RETURNING produk_id",
             (nama_produk, deskripsi_produk, satuan, gambar, nama_kategori),
         )
+        return rows[0]["produk_id"]
 
     @staticmethod
     def simpanPerubahan(
