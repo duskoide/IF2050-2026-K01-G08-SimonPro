@@ -30,6 +30,7 @@ from PyQt6.QtWidgets import (
 )
 
 from src.services.DashboardService import DashboardService
+from src.views.targetviewer import TargetWindow
 
 
 # Background radial gradient
@@ -572,6 +573,7 @@ class DashboardWindow(GradientBackground):
         self.user = user
         self.session = session
         self.on_logout = on_logout
+        self._target_window = None
         self.dashboard_service = DashboardService()
         self.setWindowTitle("SiMonPro - Dashboard")
         self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
@@ -686,18 +688,25 @@ class DashboardWindow(GradientBackground):
             on_logout=self.on_logout,
             embedded=True,
         )
+        # Page 2 — Target
+        self.target_page = TargetWindow(embedded=True)
         self.pages.addWidget(dashboard_page)
         self.pages.addWidget(self.produk_page)
+        self.pages.addWidget(self.target_page)
 
         root.addWidget(self.pages)
 
     def navigate_to(self, label):
         if label == "Produk":
             self.pages.setCurrentIndex(1)
-        else:
-            self.pages.setCurrentIndex(0)
-            if label == "Dashboard":
-                self.load_data()
+            return
+        if label == "Target":
+            self.pages.setCurrentIndex(2)
+            return
+
+        self.pages.setCurrentIndex(0)
+        if label == "Dashboard":
+            self.load_data()
 
     def load_data(self):
         try:
