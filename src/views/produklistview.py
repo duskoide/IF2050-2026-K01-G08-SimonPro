@@ -708,6 +708,18 @@ class ProdukWindow(GradientBackground):
             print(f"[ProdukWindow] Gagal generate kode produk: {e}")
         try:
             kategori_list = self._produk_service.get_daftar_kategori()
+            # Ambil daftar kategori dari database
+            kategori_service = KategoriService()
+            daftar_kategori = kategori_service.getDaftarKategori()
+            categories = [k.nama_kategori for k in daftar_kategori]
+
+            dialog = EditProdukDialog(
+                produk=produk,
+                categories=categories,
+                parent=self
+            )
+            dialog.exec()
+            self.load_produk()
         except Exception as e:
             print(f"[ProdukWindow] Gagal memuat kategori: {e}")
 
