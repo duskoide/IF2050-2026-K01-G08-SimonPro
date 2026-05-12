@@ -81,6 +81,8 @@ install_base_packages() {
 log "Installing base packages..."
 install_base_packages
 
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+
 if ! have python3; then
   err "python3 not found after install."
   exit 1
@@ -138,6 +140,41 @@ if [ "$with_test_deps" -eq 1 ]; then
     $sudo_cmd dnf -y install xorg-x11-server-Xvfb libX11 libxkbcommon-x11 libXcursor libXrandr libXrender libXinerama libXfixes mesa-libEGL mesa-libGL postgresql
   fi
 fi
+
+log "Creating launcher script..."
+launcher_path="$script_dir/run-simonpro.sh"
+cat > "$launcher_path" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+cd "$script_dir"
+exec uv run python main.py
+EOF
+chmod +x "$launcher_path"
+
+log "Creating desktop entry..."
+desktop_dir="$HOME/.local/share/applications"
+desktop_file="$desktop_dir/simonpro.desktop"
+icon_path="$script_dir/img/Logo Simonpro Biru.png"
+
+mkdir -p "$desktop_dir"
+cat > "$desktop_file" <<EOF
+[Desktop Entry]
+Name=SiMonPro
+Comment=Sistem Monitoring Produksi
+Exec=$launcher_path
+Path=$script_dir
+Terminal=false
+Type=Application
+Categories=Utility;
+EOF
+
+if [ -f "$icon_path" ]; then
+  printf 'Icon=%s\n' "$icon_path" >> "$desktop_file"
+fi
+
+chmod 644 "$desktop_file"
 
 log "Install complete."
 log "Next steps:"

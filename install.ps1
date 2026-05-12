@@ -57,6 +57,28 @@ function Ensure-Docker {
   }
 }
 
+function Ensure-Shortcut {
+  param(
+    [string]$AppName,
+    [string]$TargetPath,
+    [string]$Arguments,
+    [string]$WorkingDir,
+    [string]$IconPath
+  )
+
+  $startMenu = Join-Path $env:ProgramData "Microsoft\Windows\Start Menu\Programs"
+  $shortcutPath = Join-Path $startMenu "$AppName.lnk"
+  $shell = New-Object -ComObject WScript.Shell
+  $shortcut = $shell.CreateShortcut($shortcutPath)
+  $shortcut.TargetPath = $TargetPath
+  $shortcut.Arguments = $Arguments
+  $shortcut.WorkingDirectory = $WorkingDir
+  if ($IconPath -and (Test-Path $IconPath)) {
+    $shortcut.IconLocation = $IconPath
+  }
+  $shortcut.Save()
+}
+
 param(
   [switch]$WithTestDeps
 )
@@ -66,6 +88,19 @@ Ensure-Winget
 Ensure-Python
 Ensure-UV
 Ensure-Docker
+
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$launcherPath = Join-Path $scriptDir "run-simonpro.ps1"
+@"
+
+$ErrorActionPreference = "Stop"
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+Set-Location $ScriptDir
+uv run python main.py
+"@ | Set-Content -Path $launcherPath -Encoding UTF8
+
+$iconPath = Join-Path $scriptDir "img\Logo Simonpro Biru.png"
+Ensure-Shortcut -AppName "SiMonPro" -TargetPath "powershell.exe" -Arguments "-ExecutionPolicy Bypass -File `"$launcherPath`"" -WorkingDir $scriptDir -IconPath $iconPath
 
 if ($WithTestDeps) {
   Write-Log "Headless test deps are handled in CI on Linux. No extra Windows packages required."
