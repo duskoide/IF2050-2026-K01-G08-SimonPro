@@ -27,8 +27,6 @@ from src.utils.image_utils import pick_image_file, save_image_to_app
 
 
 # ── Gradient Card Widget ───────────────────────────────────────────────────────
-# Sekarang jadi QWidget biasa (bukan QDialog),
-# karena dia akan di-embed ke dalam OverlayDialog
 class GradientCard(QWidget):
     RADIUS = 20
 
@@ -50,7 +48,7 @@ class GradientCard(QWidget):
             self.width(), self.height()
         )
         gradient.setColorAt(0.0,  QColor("#F7F8F0"))
-        gradient.setColorAt(0.45, QColor("#EEF4F6"))
+        gradient.setColorAt(0.65, QColor("#EEF4F6"))
         gradient.setColorAt(1.0,  QColor("#D6ECFA"))
 
         painter.fillRect(self.rect(), QBrush(gradient))
@@ -58,13 +56,7 @@ class GradientCard(QWidget):
 
 # ── Overlay Dialog (layer hitam fullscreen) ────────────────────────────────────
 class OverlayDialog(QDialog):
-    """
-    Layer paling belakang: fullscreen, hitam semi-transparan.
-    Card EditProduk di-stack di atasnya sebagai child widget.
-    """
-
-    # Ubah nilai alpha (0–255) untuk mengatur opacity overlay
-    OVERLAY_COLOR = (0, 0, 0, 160)   # rgba
+    OVERLAY_COLOR = (0, 0, 0, 160)
 
     def __init__(self, produk=None, parent=None):
         super().__init__(parent)
@@ -75,24 +67,19 @@ class OverlayDialog(QDialog):
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 
-        # Fullscreen sesuai layar
         screen = QApplication.primaryScreen().availableGeometry()
         self.setGeometry(screen)
 
-        # ── Buat card dan taruh di tengah ────────────────────────────────
         self.card = EditProdukCard(produk=produk, parent=self)
-        self.card.setFixedSize(650, 610)
+        self.card.setFixedSize(650, 640)
 
-        # Posisi card: tengah layar, geser +140 ke kanan (sama seperti semula)
         card_x = (screen.width()  - self.card.width())  // 2
         card_y = (screen.height() - self.card.height()) // 2
         self.card.move(card_x, card_y)
 
-        # Tombol close pada card menutup seluruh overlay
         self.card.btn_close.clicked.connect(self.close)
 
     def paintEvent(self, event):
-        """Gambar layer hitam semi-transparan di seluruh layar."""
         painter = QPainter(self)
         r, g, b, a = self.OVERLAY_COLOR
         painter.fillRect(self.rect(), QColor(r, g, b, a))
@@ -101,6 +88,7 @@ class OverlayDialog(QDialog):
 # ── Card Edit Produk (QWidget, bukan QDialog) ──────────────────────────────────
 class EditProdukCard(GradientCard):
 
+    # Normal styles
     _INPUT_SS = """
         QLineEdit {{
             border: 1.5px solid #355872;
@@ -110,6 +98,152 @@ class EditProdukCard(GradientCard):
             background: {bg};
             color: #355872;
         }}
+    """
+
+    _COMBO_SS = """
+        QComboBox {
+            border: 1.5px solid #355872;
+            border-radius: 15px;
+            padding: 0 12px;
+            padding-right: 40px;
+            font-size: 15px;
+            color: #355872;
+            background: #FFFFFF;
+        }
+        QComboBox:hover { background-color: rgba(156, 213, 255, 0.15); }
+        QComboBox::drop-down { border: none; width: 30px; }
+        QComboBox QAbstractItemView {
+            border: 1px solid #355872;
+            border-radius: 1px;
+            background: #F7F8F0;
+            padding: 6px;
+            selection-background-color: #E3F3FF;
+            selection-color: #355872;
+            outline: 0px;
+            font-size: 15px;
+            color: #355872;
+        }
+        QComboBox QAbstractItemView::item {
+            min-height: 30px;
+            padding-left: 10px;
+            border-radius: 6px;
+            font-size: 15px;
+            color: #355872;
+        }
+        QComboBox QAbstractItemView::item:hover {
+            background-color: #DCEEF4;
+            color: #355872;
+        }
+        QComboBox QAbstractItemView::item:selected {
+            background-color: #E3F3FF;
+            color: #355872;
+            font-weight: 600;
+        }
+        QListView {
+            border: 1px solid #355872;
+            background: #F7F8F0;
+            padding: 4px;
+            outline: 0px;
+        }
+        QListView::item {
+            border: none;
+            border-radius: 6px;
+            font-size: 15px;
+            color: #355872;
+        }
+    """
+
+    # Error styles
+    _INPUT_ERROR_SS = """
+        QLineEdit {
+            border: 2px solid #FF4D4D;
+            border-radius: 15px;
+            padding: 0 12px;
+            font-size: 15px;
+            background: white;
+            color: #355872;
+        }
+    """
+
+    _COMBO_ERROR_SS = """
+        QComboBox {
+            border: 2px solid #FF4D4D;
+            border-radius: 15px;
+            padding: 0 12px;
+            padding-right: 40px;
+            font-size: 15px;
+            color: #355872;
+            background: #FFFFFF;
+        }
+        QComboBox:hover { background-color: rgba(156, 213, 255, 0.15); }
+        QComboBox::drop-down { border: none; width: 30px; }
+        QComboBox QAbstractItemView {
+            border: 1px solid #355872;
+            border-radius: 1px;
+            background: #F7F8F0;
+            padding: 6px;
+            selection-background-color: #E3F3FF;
+            selection-color: #355872;
+            outline: 0px;
+            font-size: 15px;
+            color: #355872;
+        }
+        QComboBox QAbstractItemView::item {
+            min-height: 30px;
+            padding-left: 10px;
+            border-radius: 6px;
+            font-size: 15px;
+            color: #355872;
+        }
+        QComboBox QAbstractItemView::item:hover {
+            background-color: #DCEEF4;
+            color: #355872;
+        }
+        QComboBox QAbstractItemView::item:selected {
+            background-color: #E3F3FF;
+            color: #355872;
+            font-weight: 600;
+        }
+        QListView {
+            border: 1px solid #355872;
+            background: #F7F8F0;
+            padding: 4px;
+            outline: 0px;
+        }
+        QListView::item {
+            border: none;
+            border-radius: 6px;
+            font-size: 15px;
+            color: #355872;
+        }
+    """
+
+    _FRAME_NORMAL_SS = """
+        QFrame {
+            border: 1.5px solid #355872;
+            border-radius: 15px;
+            background: #FFFFFF;
+        }
+    """
+
+    _FRAME_ERROR_SS = """
+        QFrame {
+            border: 2px solid #FF4D4D;
+            border-radius: 15px;
+            background: #FFFFFF;
+        }
+    """
+
+    _ERROR_LABEL_SS = """
+        QLabel {
+            color: #FF4D4D;
+            font-size: 12px;
+            font-weight: 500;
+            background: transparent;
+            border: none;
+            padding-left: 4px;
+            margin-top: 4px;   /* FIX 2: jarak antara field dan error message */
+        }
     """
 
     def __init__(self, produk=None, parent=None):
@@ -134,10 +268,17 @@ class EditProdukCard(GradientCard):
         """)
         return lbl
 
-    # ── Helper Row ──────────────────────────────────────────────────────────
-    def _make_row(self, label_text: str, widget):
+    def _make_error_label(self, text: str) -> QLabel:
+        """Buat label error kecil di bawah field, tersembunyi secara default."""
+        lbl = QLabel(text)
+        lbl.setStyleSheet(self._ERROR_LABEL_SS)
+        lbl.setVisible(False)
+        return lbl
+
+    # ── Helper Row (dengan slot error label di bawah field) ──────────────────
+    def _make_row(self, label_text: str, widget, error_label: QLabel):
         container = QVBoxLayout()
-        container.setSpacing(3)
+        container.setSpacing(0)
 
         wrapper = QVBoxLayout()
         wrapper.setSpacing(3)
@@ -145,10 +286,13 @@ class EditProdukCard(GradientCard):
         label = self._make_label(label_text)
         wrapper.addWidget(label)
         wrapper.addWidget(widget)
+        wrapper.setSpacing(3)
+        wrapper.addWidget(error_label)   # ← error label tepat di bawah field
 
         wrapper_widget = QFrame()
         wrapper_widget.setLayout(wrapper)
         wrapper_widget.setFixedWidth(widget.width() + 20)
+        wrapper_widget.setStyleSheet("background: transparent; border: none;")
 
         container.addWidget(
             wrapper_widget,
@@ -159,7 +303,8 @@ class EditProdukCard(GradientCard):
     # ── Build UI ────────────────────────────────────────────────────────────
     def _init_ui(self):
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(28, 10, 28, 10)
+        # FIX 1: kurangi top margin agar semua konten naik ke atas
+        main_layout.setContentsMargins(28, 4, 18, 10)
 
         card = QFrame(self)
 
@@ -183,7 +328,6 @@ class EditProdukCard(GradientCard):
                 background-color: rgba(156, 213, 255, 0.4);
             }
         """)
-        # Catatan: koneksi .clicked dilakukan di OverlayDialog
 
         card.setStyleSheet("""
             background: transparent;
@@ -191,7 +335,8 @@ class EditProdukCard(GradientCard):
         """)
 
         layout = QVBoxLayout(card)
-        layout.setContentsMargins(20, 18, 20, 10)
+        # FIX 1: kurangi top margin card dan spacing agar konten naik
+        layout.setContentsMargins(20, 8, 20, 10)
         layout.setSpacing(0)
 
         # ── Title ───────────────────────────────────────────────────────────
@@ -205,7 +350,7 @@ class EditProdukCard(GradientCard):
                 letter-spacing: 0.5px;
                 border: none;
                 background: transparent;
-                padding-bottom: 6px;
+                padding-bottom: 4px;   /* FIX 1: sedikit dikurangi dari 6px */
             }
         """)
         layout.addWidget(title)
@@ -215,19 +360,23 @@ class EditProdukCard(GradientCard):
         self.input_kode.setReadOnly(True)
         self.input_kode.setFixedSize(400, 46)
         self.input_kode.setStyleSheet(self._INPUT_SS.format(bg="#FFFFFF"))
-        layout.addLayout(self._make_row("Kode Produk", self.input_kode))
+        _err_kode = self._make_error_label("")
+        layout.addLayout(self._make_row("Kode Produk", self.input_kode, _err_kode))
 
         # ── Nama Produk ─────────────────────────────────────────────────────
         self.input_nama = QLineEdit()
         self.input_nama.setFixedSize(400, 46)
         self.input_nama.setStyleSheet(self._INPUT_SS.format(bg="#FFFFFF"))
-        layout.addLayout(self._make_row("Nama Produk", self.input_nama))
+        self.err_nama = self._make_error_label("Nama Produk wajib diisi")
+        layout.addLayout(self._make_row("Nama Produk", self.input_nama, self.err_nama))
 
         # ── Kategori Produk ─────────────────────────────────────────────────
         self.combo_kategori = QComboBox()
         self.combo_kategori.setView(QListView())
         self.combo_kategori.setFixedSize(400, 46)
+        self.combo_kategori.addItem("Pilih Kategori")
         self.combo_kategori.addItems(["Atasan", "Bawahan", "Pakaian Dalam"])
+        self.combo_kategori.setCurrentIndex(0)
 
         arrow_lbl = QLabel(self.combo_kategori)
         arrow_lbl.setPixmap(
@@ -236,87 +385,24 @@ class EditProdukCard(GradientCard):
         arrow_lbl.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         arrow_lbl.move(368, 13)
 
-        self.combo_kategori.setStyleSheet("""
-            QComboBox {
-                border: 1.5px solid #355872;
-                border-radius: 15px;
-                padding: 0 12px;
-                padding-right: 40px;
-                font-size: 15px;
-                color: #355872;
-                background: #FFFFFF;
-            }
-            QComboBox:hover { background-color: rgba(156, 213, 255, 0.15); }
-            QComboBox::drop-down { border: none; width: 30px; }
-            QComboBox QAbstractItemView {
-                border: 1px solid #355872;
-                border-radius: 1px;
-                background: #F7F8F0;
-                padding: 6px;
-                selection-background-color: #E3F3FF;
-                selection-color: #355872;
-                outline: 0px;
-                font-size: 15px;
-                color: #355872;
-            }
-            QComboBox QAbstractItemView::item {
-                min-height: 30px;
-                padding-left: 10px;
-                border-radius: 6px;
-                font-size: 15px;
-                color: #355872;
-            }
-            QComboBox QAbstractItemView::item:hover {
-                background-color: #DCEEF4;
-                color: #355872;
-            }
-            QComboBox QAbstractItemView::item:selected {
-                background-color: #E3F3FF;
-                color: #355872;
-                font-weight: 600;
-            }
-            QListView {
-                border: 1px solid #355872;
-                background: #F7F8F0;
-                padding: 4px;
-                outline: 0px;
-            }
-            QListView::item {
-                border: none;
-                border-radius: 6px;
-                font-size: 15px;
-                color: #355872;
-            }
-        """)
-        layout.addLayout(self._make_row("Kategori Produk", self.combo_kategori))
+        self.combo_kategori.setStyleSheet(self._COMBO_SS)
+        self.err_kategori = self._make_error_label("Kategori Produk wajib dipilih")
+        layout.addLayout(self._make_row("Kategori Produk", self.combo_kategori, self.err_kategori))
 
-        # ── Deskripsi ───────────────────────────────────────────────────────
+        # ── Deskripsi (opsional, tidak ada validasi) ─────────────────────────
         self.input_deskripsi = QLineEdit()
         self.input_deskripsi.setFixedSize(400, 46)
-        self.input_deskripsi.setStyleSheet("""
-            QLineEdit {
-                border: 1.5px solid #355872;
-                border-radius: 15px;
-                padding: 0 12px;
-                font-size: 15px;
-                background: #FFFFFF;
-                color: #355872;
-            }
-        """)
-        layout.addLayout(self._make_row("Deskripsi", self.input_deskripsi))
+        self.input_deskripsi.setStyleSheet(self._INPUT_SS.format(bg="#FFFFFF"))
+        # FIX 3: tidak ada error label untuk deskripsi (bersifat opsional)
+        _err_deskripsi_placeholder = self._make_error_label("")
+        layout.addLayout(self._make_row("Deskripsi", self.input_deskripsi, _err_deskripsi_placeholder))
 
         # ── Foto Produk ─────────────────────────────────────────────────────
-        foto_container = QFrame()
-        foto_container.setFixedSize(400, 46)
-        foto_container.setStyleSheet("""
-            QFrame {
-                border: 1.5px solid #355872;
-                border-radius: 15px;
-                background: #FFFFFF;
-            }
-        """)
+        self._foto_container = QFrame()
+        self._foto_container.setFixedSize(400, 46)
+        self._foto_container.setStyleSheet(self._FRAME_NORMAL_SS)
 
-        foto_h = QHBoxLayout(foto_container)
+        foto_h = QHBoxLayout(self._foto_container)
         foto_h.setContentsMargins(12, 0, 10, 0)
 
         self.label_foto = QLabel("Pilih file gambar...")
@@ -342,26 +428,11 @@ class EditProdukCard(GradientCard):
 
         foto_h.addWidget(self.label_foto, stretch=1)
         foto_h.addWidget(self.btn_upload)
-        layout.addLayout(self._make_row("Foto Produk", foto_container))
 
-        # Spacer
-        layout.addSpacing(6)
+        self.err_foto = self._make_error_label("Foto Produk wajib diunggah")
+        layout.addLayout(self._make_row("Foto Produk", self._foto_container, self.err_foto))
 
-        # Warning Text
-        self.label_warning = QLabel("Nama kategori wajib diisi")
-        self.label_warning.setStyleSheet("""
-            QLabel {
-                color: #FF8D8D;
-                font-size: 18px;
-                font-weight: 600;
-                background: transparent;
-                border: none;
-            }
-        """)
-        self.label_warning.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(self.label_warning)
-
-        layout.addSpacing(14)
+        layout.addSpacing(10)
 
         # ── Buttons ─────────────────────────────────────────────────────────
         button_layout = QHBoxLayout()
@@ -405,6 +476,18 @@ class EditProdukCard(GradientCard):
         layout.addLayout(button_layout)
         main_layout.addWidget(card)
 
+        # Koneksi validasi saat simpan diklik
+        self.btn_simpan.clicked.connect(self._on_simpan_clicked)
+
+        # Reset error otomatis saat user berinteraksi
+        self.input_nama.textChanged.connect(
+            lambda: self._clear_error_line(self.input_nama, self.err_nama)
+        )
+        # FIX 3: deskripsi tidak punya error, tidak perlu koneksi reset error
+        self.combo_kategori.currentIndexChanged.connect(
+            lambda: self._clear_error_combo(self.combo_kategori, self.err_kategori)
+        )
+
     # ── Populate Data ────────────────────────────────────────────────────────
     def _populate_data(self):
         if self.produk is None:
@@ -439,6 +522,63 @@ class EditProdukCard(GradientCard):
                 color: #355872;
                 font-size: 15px;
             """)
+            self._clear_error_frame(self._foto_container, self.err_foto)
+
+    # ── Validasi Simpan ──────────────────────────────────────────────────────
+    def _on_simpan_clicked(self):
+        """Validasi field wajib; deskripsi bersifat opsional (FIX 3)."""
+        nama_kosong      = not self.input_nama.text().strip()
+        kategori_kosong  = self.combo_kategori.currentIndex() == 0
+        foto_kosong      = self.label_foto.text().strip() in ("", "Pilih file gambar...")
+
+        # Nama
+        if nama_kosong:
+            self.input_nama.setStyleSheet(self._INPUT_ERROR_SS)
+            self.err_nama.setVisible(True)
+        else:
+            self.input_nama.setStyleSheet(self._INPUT_SS.format(bg="#FFFFFF"))
+            self.err_nama.setVisible(False)
+
+        # Kategori
+        if kategori_kosong:
+            self.combo_kategori.setStyleSheet(self._COMBO_ERROR_SS)
+            self.err_kategori.setVisible(True)
+        else:
+            self.combo_kategori.setStyleSheet(self._COMBO_SS)
+            self.err_kategori.setVisible(False)
+
+        # FIX 3: deskripsi tidak divalidasi sama sekali
+
+        # Foto
+        if foto_kosong:
+            self._foto_container.setStyleSheet(self._FRAME_ERROR_SS)
+            self.err_foto.setVisible(True)
+        else:
+            self._foto_container.setStyleSheet(self._FRAME_NORMAL_SS)
+            self.err_foto.setVisible(False)
+
+        ada_error = nama_kosong or kategori_kosong or foto_kosong
+        if not ada_error:
+            self._do_simpan()
+
+    def _do_simpan(self):
+        """Logika penyimpanan aktual dipanggil setelah validasi lulus."""
+        # TODO: implementasi simpan ke database / model
+        pass
+
+    # ── Helper: clear error per field ────────────────────────────────────────
+    def _clear_error_line(self, widget: QLineEdit, err_lbl: QLabel):
+        widget.setStyleSheet(self._INPUT_SS.format(bg="#FFFFFF"))
+        err_lbl.setVisible(False)
+
+    def _clear_error_combo(self, combo: QComboBox, err_lbl: QLabel):
+        if combo.currentIndex() != 0:
+            combo.setStyleSheet(self._COMBO_SS)
+            err_lbl.setVisible(False)
+
+    def _clear_error_frame(self, frame: QFrame, err_lbl: QLabel):
+        frame.setStyleSheet(self._FRAME_NORMAL_SS)
+        err_lbl.setVisible(False)
 
     def get_selected_image_relpath(self) -> str | None:
         if self._selected_image_path:
