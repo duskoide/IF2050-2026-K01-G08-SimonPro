@@ -1,6 +1,10 @@
 import sys
 import os
 
+# Tambah root project ke sys.path supaya import src.* berfungsi
+# saat file ini dijalankan langsung sebagai script
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+
 os.environ['QT_API'] = 'pyqt6'
 
 from PyQt6.QtWidgets import (
@@ -19,6 +23,8 @@ from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
 import numpy as np
 from scipy.interpolate import make_interp_spline
+
+from src.services.DefectService import DefectService
 
 # Background
 class GradientBackground(QWidget):
@@ -235,25 +241,27 @@ class ChartCanvas(FigureCanvas):
         self.setParent(parent)
         self.setStyleSheet("background:transparent;")
 
-# Line Chart Card (Tingkat Defect)
-DEFECT_MONTHS  = ['Jan', 'Feb', 'Mar', 'Apr']
-DEFECT_VALS    = [120, 100, 145, 85]
-
-# Auto-generate info badges dari selisih antar bulan
-def _gen_defect_info():
+# Helper: Generate info badges dari selisih antar bulan
+def _gen_defect_info(months, vals):
     items = []
-    labels = DEFECT_MONTHS
-    vals   = DEFECT_VALS
     for i in range(len(vals) - 1, 0, -1):
         diff = abs(vals[i] - vals[i - 1])
-        pct  = round(diff / vals[i - 1] * 100)
+        pct  = round(diff / vals[i - 1] * 100) if vals[i - 1] != 0 else 0
         arah = "menurun" if vals[i] < vals[i - 1] else "naik"
-        items.append(f"Tingkat defect {arah} sebesar {pct}% dibandingkan Bulan {labels[i - 1].replace('Jan','Januari').replace('Feb','Februari').replace('Mar','Maret').replace('Apr','April')}")
+        bulan_map = {'Jan': 'Januari', 'Feb': 'Februari', 'Mar': 'Maret',
+                     'Apr': 'April', 'May': 'Mei', 'Jun': 'Juni',
+                     'Jul': 'Juli', 'Aug': 'Agustus', 'Sep': 'September',
+                     'Oct': 'Oktober', 'Nov': 'November', 'Dec': 'Desember'}
+        bulan_nama = bulan_map.get(months[i - 1], months[i - 1])
+        items.append(f"Tingkat defect {arah} sebesar {pct}% dibandingkan Bulan {bulan_nama}")
     return items
 
+
 class LineDefectCard(Card):
-    def __init__(self, parent=None):
+    def __init__(self, months, vals, parent=None):
         super().__init__(parent)
+        self.months = months
+        self.vals = vals
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.setMaximumHeight(550)
         lay = QVBoxLayout(self)
@@ -272,20 +280,25 @@ class LineDefectCard(Card):
         self.canvas.fig.subplots_adjust(left=0.1, right=0.95, top=0.95, bottom=0.2)
         self.ax = self.canvas.fig.add_subplot(111)
 
-        x    = np.arange(len(DEFECT_MONTHS))
-        x_sm = np.linspace(x.min(), x.max(), 300)
-        spl  = make_interp_spline(x, DEFECT_VALS, k=3)
-        y_sm = spl(x_sm)
+        x    = np.arange(len(self.months))
+        if len(self.months) >= 4:
+            x_sm = np.linspace(x.min(), x.max(), 300)
+            spl  = make_interp_spline(x, self.vals, k=3)
+            y_sm = spl(x_sm)
+            self.ax.plot(x_sm, y_sm, color='#355872', linewidth=3, label='Defect', zorder=3)
+        else:
+            self.ax.plot(x, self.vals, color='#355872', linewidth=3, label='Defect', zorder=3)
 
-        # Line and markers
-        self.ax.plot(x_sm, y_sm, color='#355872', linewidth=3, label='Defect', zorder=3)
-        self.sc = self.ax.scatter(x, DEFECT_VALS, color='#355872', s=60, zorder=4, edgecolor='white', linewidth=1.5)
+        self.sc = self.ax.scatter(x, self.vals, color='#355872', s=60, zorder=4, edgecolor='white', linewidth=1.5)
 
-        # Grid & Axis
-        self.ax.set_ylim(0, 200)
-        self.ax.set_yticks([0, 50, 100, 150, 200])
+        # Grid & Axis — dynamic y-limit
+        max_val = max(self.vals) if self.vals else 100
+        y_limit = max(200, int(max_val * 1.2))
+        step = max(50, int(y_limit / 4 / 50) * 50)
+        self.ax.set_ylim(0, y_limit)
+        self.ax.set_yticks(list(range(0, y_limit + 1, step)))
         self.ax.set_xticks(x)
-        self.ax.set_xticklabels(DEFECT_MONTHS, color='#355872', fontsize=10)
+        self.ax.set_xticklabels(self.months, color='#355872', fontsize=10)
         self.ax.tick_params(axis='y', colors='#355872', labelsize=10)
         
         # Grid dashed
@@ -298,7 +311,7 @@ class LineDefectCard(Card):
             self.ax.spines[spine].set_color('#355872')
             self.ax.spines[spine].set_alpha(0.3)
 
-        # Legend (Bottom) - Moved legend further down
+        # Legend (Bottom)
         legend = self.ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.12), 
                                ncol=1, frameon=False, fontsize=11, 
                                handlelength=1.5, handletextpad=0.5)
@@ -315,7 +328,7 @@ class LineDefectCard(Card):
         lay.setSpacing(10)
 
         # Info badges - Centered below chart
-        for text in _gen_defect_info():
+        for text in _gen_defect_info(self.months, self.vals):
             badge = QFrame()
             badge.setMinimumWidth(500)
             badge.setStyleSheet("""
@@ -353,7 +366,7 @@ class LineDefectCard(Card):
             if cont:
                 idx = ind["ind"][0]
                 pos = self.sc.get_offsets()[idx]
-                self.tooltip.set_text(f"{DEFECT_MONTHS[idx]}\nDefect: {DEFECT_VALS[idx]}")
+                self.tooltip.set_text(f"{self.months[idx]}\nDefect: {self.vals[idx]}")
 
                 y_min, y_max = self.ax.get_ylim()
                 offset = (y_max - y_min) * 0.05
@@ -367,13 +380,12 @@ class LineDefectCard(Card):
         if found or vis != self.tooltip.get_visible():
             self.canvas.draw_idle()
 
-DEFECT_TYPES  = ['Kerusakan Fisik', 'Kesalahan Proses', 'Cacat Material']
-DEFECT_COUNTS = [20, 35, 45]
-DEFECT_PCTS   = [35, 57, 84]
-
 class HBarDefectCard(Card):
-    def __init__(self, parent=None):
+    def __init__(self, types, counts, pcts, parent=None):
         super().__init__(parent)
+        self.types = types
+        self.counts = counts
+        self.pcts = pcts
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.setMaximumHeight(550)
         lay = QVBoxLayout(self)
@@ -393,16 +405,21 @@ class HBarDefectCard(Card):
         self.canvas.fig.subplots_adjust(left=0.25, right=0.95, top=0.9, bottom=0.15)
         self.ax = self.canvas.fig.add_subplot(111)
 
-        y = np.arange(len(DEFECT_TYPES))
-        # Reduced gap by increasing height (0.8)
-        self.bars = self.ax.barh(y, DEFECT_COUNTS, color='#9CD5FF',
+        y = np.arange(len(self.types))
+        self.bars = self.ax.barh(y, self.counts, color='#9CD5FF',
                                  height=0.8, zorder=3)
 
         self.ax.set_yticks(y)
-        self.ax.set_yticklabels(DEFECT_TYPES, color='#355872', fontsize=11)
+        self.ax.set_yticklabels(self.types, color='#355872', fontsize=9)
         self.ax.tick_params(axis='x', colors='#355872', labelsize=10)
-        self.ax.set_xlim(0, 65)
-        self.ax.set_xticks([0, 15, 30, 45, 60])
+
+        # Dynamic x-axis
+        max_count = max(self.counts) if self.counts else 50
+        x_limit = max(65, int(max_count * 1.3))
+        step = max(15, int(x_limit / 4 / 15) * 15)
+        self.ax.set_xlim(0, x_limit)
+        self.ax.set_xticks(list(range(0, x_limit + 1, step)))
+
         self.ax.xaxis.grid(True, linestyle='--', alpha=0.3, color='#355872', zorder=0)
         
         for spine in ['top', 'right']:
@@ -420,8 +437,8 @@ class HBarDefectCard(Card):
 
         lay.addWidget(self.canvas)
 
-        # Percentage rows - Even larger font size and bigger badges
-        for tipe, pct in zip(reversed(DEFECT_TYPES), reversed(DEFECT_PCTS)):
+        # Percentage rows
+        for tipe, pct in zip(reversed(self.types), reversed(self.pcts)):
             row_frame = QFrame()
             row_frame.setStyleSheet("""
                 QFrame {
@@ -454,7 +471,7 @@ class HBarDefectCard(Card):
             b_lbl = QLabel(f"{pct}%")
             b_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
             b_lbl.setStyleSheet(
-                "color: #355872; font-size: 24px; font-weight: 700; "
+                "color: #355872; font-size: 18px; font-weight: 700; "
                 "border: none; background: transparent;"
             )
             b_lay.addWidget(b_lbl)
@@ -483,7 +500,7 @@ class HBarDefectCard(Card):
                     bar.set_edgecolor('#355872')
                     bar.set_linewidth(1.5)
                     
-                    self.tooltip.set_text(f"{DEFECT_TYPES[i]}\n{DEFECT_COUNTS[i]} unit ({DEFECT_PCTS[i]}%)")
+                    self.tooltip.set_text(f"{self.types[i]}\n{self.counts[i]} unit ({self.pcts[i]}%)")
                     self.tooltip.set_position((
                         bar.get_width() / 2,
                         bar.get_y() + bar.get_height() / 2
@@ -533,19 +550,36 @@ class DefectWindow(GradientBackground):
         inner_lay.setContentsMargins(28, 16, 28, 28)
         inner_lay.setSpacing(20)
 
+        # Fetch data from database
+        service = DefectService()
+        data = service.get_defect_data(months=4)
+
+        months = data["months_labels"]
+        vals = data["defect_per_month"]
+        types = data["defect_types"]
+        counts = data["defect_counts"]
+        pcts = data["defect_pcts"]
+        total_defect = data["total_defect"]
+        defect_rate = data["defect_rate"]
+        top_type = data["top_type"]
+        top_pct = data["top_pct"]
+        mom = data["mom_change"]
+
         # Stat cards
+        mom_arrow = "↑" if mom >= 0 else "↓"
+        mom_text = f"{mom_arrow}{abs(mom)}% dari bulan lalu"
         stat_row = QHBoxLayout()
         stat_row.setSpacing(16)
-        stat_row.addWidget(StatCard("Total Defect",       "67",           "↑18.2% dari bulan lalu"))
-        stat_row.addWidget(StatCard("Defect Rate",        "0.65%",        "Target: < 1%"))
-        stat_row.addWidget(StatCard("Tipe Defect Terbanyak", "Cacat Material", "67% dari total"))
+        stat_row.addWidget(StatCard("Total Defect", str(total_defect), mom_text))
+        stat_row.addWidget(StatCard("Defect Rate", f"{defect_rate}%", "Target: < 1%"))
+        stat_row.addWidget(StatCard("Tipe Defect Terbanyak", top_type, f"{top_pct}% dari total"))
         inner_lay.addLayout(stat_row)
 
         # Charts row
         chart_row = QHBoxLayout()
         chart_row.setSpacing(16)
-        chart_row.addWidget(LineDefectCard(), stretch=1)
-        chart_row.addWidget(HBarDefectCard(), stretch=1)
+        chart_row.addWidget(LineDefectCard(months, vals), stretch=1)
+        chart_row.addWidget(HBarDefectCard(types, counts, pcts), stretch=1)
         inner_lay.addLayout(chart_row)
 
         inner_lay.addStretch()
