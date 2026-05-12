@@ -7,19 +7,21 @@ os.environ['QT_API'] = 'pyqt6'
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QLabel, QPushButton,
     QVBoxLayout, QHBoxLayout, QFrame, QSizePolicy,
-    QScrollArea, QGraphicsDropShadowEffect
+    QScrollArea, QGraphicsDropShadowEffect, QMessageBox
 )
 from PyQt6.QtGui import (
     QPainter, QLinearGradient, QColor, QBrush,
     QPen, QPainterPath, QPixmap, QFont, QFontMetrics
 )
-from PyQt6.QtCore import Qt, QSize, QRectF, QPointF
+from PyQt6.QtCore import Qt, QSize, QRectF, QPointF, pyqtSignal
 import qtawesome as qta
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 import numpy as np
-from scipy.interpolate import make_interp_spline
+
+from src.controllers.PencapaianController import PencapaianController
+from src.services.PencapaianService import PencapaianService
 
 
 # Background
@@ -65,6 +67,9 @@ class Sidebar(QFrame):
         ("mdi.file-document-outline", "Laporan", False),
     ]
 
+    logout_clicked = pyqtSignal()
+    menu_clicked = pyqtSignal(str)
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setFixedWidth(230)
@@ -101,13 +106,26 @@ class Sidebar(QFrame):
         lay.addSpacing(8)
 
         for icon_name, label, active in self.MENU:
-            lay.addWidget(self._menu_btn(icon_name, label, active))
+            menu_btn = self._menu_btn(icon_name, label, active)
+            menu_btn.mousePressEvent = self._make_menu_handler(label)
+            lay.addWidget(menu_btn)
             lay.addSpacing(6)
 
         lay.addStretch()
 
-        lay.addWidget(self._menu_btn("mdi.logout", "Keluar", False))
+        logout_btn = self._menu_btn("mdi.logout", "Keluar", False)
+        logout_btn.mousePressEvent = lambda event: (
+            self.logout_clicked.emit()
+            if event.button() == Qt.MouseButton.LeftButton else None
+        )
+        lay.addWidget(logout_btn)
         lay.addSpacing(16)
+
+    def _make_menu_handler(self, label):
+        return lambda event: (
+            self.menu_clicked.emit(label)
+            if event.button() == Qt.MouseButton.LeftButton else None
+        )
 
     def _menu_btn(self, icon_name, label, active):
         btn = QFrame()
@@ -166,8 +184,9 @@ class Sidebar(QFrame):
 
 #Topbar
 class Topbar(QFrame):
-    def __init__(self, parent=None):
+    def __init__(self, user=None, parent=None):
         super().__init__(parent)
+        self.user = user
         self.setFixedHeight(70)
         self.setStyleSheet("background:transparent; border:none;")
 
@@ -184,9 +203,11 @@ class Topbar(QFrame):
         user_ico.setPixmap(qta.icon("fa5s.user-circle", color="#355872").pixmap(50, 50))
         user_ico.setStyleSheet("border:none; background:transparent;")
 
-        name_lbl = QLabel("Yumna Fathonah")
+        name = user.username if user else "Admin"
+        role = user.role if user else "Admin"
+        name_lbl = QLabel(name)
         name_lbl.setStyleSheet(f"color:{"#355872"}; font-size:18px; font-weight:700; border:none; background:transparent;")
-        role_lbl = QLabel("Admin")
+        role_lbl = QLabel(role)
         role_lbl.setStyleSheet(f"color:{"#355872"}; font-size:14px; font-weight:400; border:none; background:transparent;")
 
         info_col = QFrame()
@@ -230,6 +251,14 @@ class StatCard(Card):
         lay.addWidget(lbl)
         lay.addWidget(val)
         lay.addWidget(sub_lbl)
+        self.value_lbl = val
+        self.sub_lbl = sub_lbl
+
+    def set_value(self, value):
+        self.value_lbl.setText(value)
+
+    def set_sub(self, sub):
+        self.sub_lbl.setText(sub)
 
 
 # Matplotlib Canvas Integration
@@ -257,18 +286,12 @@ class PieChartCard(Card):
         self.canvas.fig.subplots_adjust(left=0.02, right=0.98, top=0.98, bottom=0.02)
         self.ax = self.canvas.fig.add_subplot(111)
         
-        self.labels = ['Jaket Dilan', 'Dress', 'Kaos Polos', 'Lainnya']
-        self.sizes = [67, 15, 10, 8]
+        self.labels = ['Belum ada data']
+        self.sizes = [100.0]
+        self.totals = [0]
         self.colors = ['#355872', '#5A88A8', '#9CD5FF', '#D8EEFF']
         
-        self.wedges, self.texts = self.ax.pie(
-            self.sizes, startangle=90, colors=self.colors,
-            radius=1.1,
-            wedgeprops={
-                'edgecolor': 'white',
-                'linewidth': 1
-            }
-        )
+        self.wedges, self.texts = self._draw_pie()
         self.ax.axis('equal')
         self.ax.margins(0)
 
@@ -283,13 +306,43 @@ class PieChartCard(Card):
         lay.addSpacing(2)
         
         # Legend layout
-        legend_lay = QVBoxLayout()
-        legend_lay.setSpacing(8)
+        self.legend_lay = QVBoxLayout()
+        self.legend_lay.setSpacing(8)
+        lay.addLayout(self.legend_lay)
+        self._build_legend()
+
+        # Connect hover event
+        self.canvas.mpl_connect("motion_notify_event", self.on_hover)
+
+    def _draw_pie(self):
+        colors = self.colors[:len(self.labels)]
+        if len(colors) < len(self.labels):
+            colors.extend([self.colors[-1]] * (len(self.labels) - len(colors)))
+
+        return self.ax.pie(
+            self.sizes, startangle=90, colors=colors,
+            radius=1.1,
+            wedgeprops={
+                'edgecolor': 'white',
+                'linewidth': 1
+            }
+        )
+
+    def _clear_layout(self, layout):
+        while layout.count():
+            item = layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+            elif item.layout():
+                self._clear_layout(item.layout())
+
+    def _build_legend(self):
+        self._clear_layout(self.legend_lay)
         for i, label in enumerate(self.labels):
             row = QHBoxLayout()
             dot = QLabel()
             dot.setFixedSize(14, 14)
-            dot.setStyleSheet(f"background-color: {self.colors[i]}; border-radius: 7px; border:none;")
+            dot.setStyleSheet(f"background-color: {self.colors[i % len(self.colors)]}; border-radius: 7px; border:none;")
             lbl = QLabel(f"{label}")
             lbl.setStyleSheet("color: #355872; font-size: 16px; font-weight: 500; border:none;")
             val = QLabel(f"{self.sizes[i]}%")
@@ -298,11 +351,23 @@ class PieChartCard(Card):
             row.addWidget(lbl)
             row.addStretch()
             row.addWidget(val)
-            legend_lay.addLayout(row)
-        lay.addLayout(legend_lay)
+            self.legend_lay.addLayout(row)
 
-        # Connect hover event
-        self.canvas.mpl_connect("motion_notify_event", self.on_hover)
+    def set_data(self, distribution):
+        self.labels = distribution.get("labels") or ["Belum ada data"]
+        self.sizes = distribution.get("values") or [100.0]
+        self.totals = distribution.get("totals") or [0]
+        self.ax.clear()
+        self.wedges, self.texts = self._draw_pie()
+        self.ax.axis('equal')
+        self.tooltip = self.ax.text(
+            0, 0, "", ha="center", va="center",
+            bbox=dict(boxstyle="round,pad=0.5", fc="white", ec="#355872", lw=1, alpha=0.9),
+            fontsize=10, fontweight='medium', color='#355872', zorder=10
+        )
+        self.tooltip.set_visible(False)
+        self._build_legend()
+        self.canvas.draw_idle()
 
     def on_hover(self, event):
         if event.inaxes == self.ax:
@@ -320,7 +385,8 @@ class PieChartCard(Card):
                         w.set_center((x, y))
                         
                     # Update tooltip
-                    self.tooltip.set_text(f"{self.labels[i]}\n{self.sizes[i]}%")
+                    total = self.totals[i] if i < len(self.totals) else 0
+                    self.tooltip.set_text(f"{self.labels[i]}\n{self.sizes[i]}%\n{total:,} unit")
                     self.tooltip.set_position((0, 0)) # Center of pie
                     self.tooltip.set_visible(True)
                     self.canvas.draw_idle()
@@ -380,6 +446,43 @@ class BarChartCard(Card):
         # Connect hover event
         self.canvas.mpl_connect("motion_notify_event", self.on_hover)
 
+    def set_data(self, labels, target_vals, actual_vals):
+        self.weeks = labels or []
+        self.target_vals = target_vals or []
+        self.actual_vals = actual_vals or []
+        self.ax.clear()
+
+        if not self.weeks:
+            self.weeks = ["-"]
+            self.target_vals = [0]
+            self.actual_vals = [0]
+
+        x = np.arange(len(self.weeks))
+        width = 0.3
+        self.target_bars = self.ax.bar(x - 0.18, self.target_vals, width,
+            label='Target', color='#9CD5FF', zorder=3)
+        self.actual_bars = self.ax.bar(x + 0.18, self.actual_vals, width,
+            label='Actual', color='#7AAACE', zorder=3)
+        self.ax.set_xticks(x)
+        self.ax.set_xticklabels(self.weeks, color='#355872', fontsize=9)
+        self.ax.tick_params(axis='y', colors='#355872', labelsize=9)
+        max_value = max(self.target_vals + self.actual_vals + [1])
+        self.ax.set_ylim(0, max_value * 1.2)
+        self.legend = self.ax.legend(frameon=False, loc='center left', bbox_to_anchor=(1.02, 0.5), fontsize=12,
+                        handlelength=1.2, handleheight=1.2)
+        self.legend.get_texts()[0].set_color("#9CD5FF")
+        self.legend.get_texts()[1].set_color("#7AAACE")
+
+        self.ax.yaxis.grid(True, linestyle='--', alpha=0.3, zorder=0)
+        for spine in self.ax.spines.values():
+            spine.set_visible(False)
+        self.tooltip = self.ax.text(0, 0, "",
+            ha='center', va='center', fontsize=9, color='#355872',
+            bbox=dict(
+                boxstyle="round,pad=0.4", fc="white", ec="#355872", lw=1))
+        self.tooltip.set_visible(False)
+        self.canvas.draw_idle()
+
     def on_hover(self, event):
         vis = self.tooltip.get_visible()
         found = False
@@ -412,7 +515,7 @@ class BarChartCard(Card):
                         bar.set_alpha(0.8)
                         bar.set_edgecolor('#355872')
                         bar.set_linewidth(1)
-                        pct = (self.actual_vals[i] / self.target_vals[i]) * 100
+                        pct = (self.actual_vals[i] / self.target_vals[i]) * 100 if self.target_vals[i] else 0
                         self.tooltip.set_text(
                             f"{self.weeks[i]}\nActual: {self.actual_vals[i]}\n({pct:.1f}% dari target)"
                         )
@@ -445,36 +548,12 @@ class LineChartCard(Card):
         title.setStyleSheet("color: #7AAACE; font-size: 20px; font-weight: 700; border:none; background:transparent;")
         left_col.addWidget(title)
 
-        self.weeks = ['Minggu 1', 'Minggu 2', 'Minggu 3', 'Minggu 4']
-        self.efficiency = [95, 102, 99, 105]
+        self.weeks = ['-']
+        self.efficiency = [0.0]
 
-        # Generate info_items otomatis dari selisih antar minggu
-        info_items = []
-        for i in range(len(self.efficiency) - 1, 0, -1):  # dari minggu terakhir mundur
-            diff = self.efficiency[i] - self.efficiency[i - 1]
-            arah = "naik" if diff >= 0 else "turun"
-            info_items.append(f"Efisiensi {arah} {abs(diff)}% dari minggu ke-{i}")
-
-        for text in info_items:
-            badge = QFrame()
-            badge.setStyleSheet("""
-                QFrame {
-                    background-color: #80BFE6FD;
-                    border: 1px solid #355872;
-                    border-radius: 12px;
-                }
-            """)
-            badge_lay = QHBoxLayout(badge)
-            badge_lay.setContentsMargins(12, 8, 12, 8)
-            badge_lay.setSpacing(8)
-
-            lbl = QLabel(text)
-            lbl.setStyleSheet("color: #355872; font-size: 15px; font-weight: 500; border:none; background:transparent;")
-            lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            
-            badge_lay.addWidget(lbl)
-            badge_lay.addStretch()
-            left_col.addWidget(badge)
+        self.badge_layout = QVBoxLayout()
+        self.badge_layout.setSpacing(12)
+        left_col.addLayout(self.badge_layout)
         
         left_col.addStretch()
         main_lay.addLayout(left_col, 1)
@@ -485,12 +564,7 @@ class LineChartCard(Card):
         self.ax = self.canvas.fig.add_subplot(111)
         
         x = np.arange(len(self.weeks))
-        x_smooth = np.linspace(x.min(), x.max(), 300)
-        spl = make_interp_spline(x, self.efficiency, k=3)
-        y_smooth = spl(x_smooth)
-        
-        # Garis Tren (Smooth)
-        self.ax.plot(x_smooth, y_smooth, color='#355872', linewidth=3, label='Efisiensi %', zorder=3)
+        self.ax.plot(x, self.efficiency, color='#355872', linewidth=3, label='Efisiensi %', zorder=3)
         self.sc = self.ax.scatter(x, self.efficiency, color='#355872', s=60, zorder=4, edgecolor='white', linewidth=1.5)
         
         # Grid & Sumbu
@@ -528,6 +602,67 @@ class LineChartCard(Card):
         # Connect hover event
         self.canvas.mpl_connect("motion_notify_event", self.on_hover)
 
+    def set_data(self, labels, efficiency, insights):
+        self.weeks = labels or ["-"]
+        self.efficiency = efficiency or [0.0]
+        self.ax.clear()
+
+        while self.badge_layout.count():
+            item = self.badge_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        for text in (insights or ["Belum ada tren pencapaian"]):
+            badge = QFrame()
+            badge.setStyleSheet("""
+                QFrame {
+                    background-color: #80BFE6FD;
+                    border: 1px solid #355872;
+                    border-radius: 12px;
+                }
+            """)
+            badge_lay = QHBoxLayout(badge)
+            badge_lay.setContentsMargins(12, 8, 12, 8)
+            badge_lay.setSpacing(8)
+
+            lbl = QLabel(text)
+            lbl.setStyleSheet("color: #355872; font-size: 15px; font-weight: 500; border:none; background:transparent;")
+            lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            badge_lay.addWidget(lbl)
+            badge_lay.addStretch()
+            self.badge_layout.addWidget(badge)
+
+        x = np.arange(len(self.weeks))
+        self.ax.plot(x, self.efficiency, color='#355872', linewidth=3, label='Efisiensi %', zorder=3)
+        self.sc = self.ax.scatter(x, self.efficiency, color='#355872', s=60, zorder=4, edgecolor='white', linewidth=1.5)
+
+        y_max = max(self.efficiency + [100])
+        y_limit = max(120, y_max * 1.15)
+        self.ax.set_ylim(0, y_limit)
+        self.ax.set_yticks(np.linspace(0, y_limit, 5))
+        self.ax.set_xticks(x)
+        self.ax.set_xticklabels(self.weeks, color='#355872', fontsize=9)
+        self.ax.tick_params(axis='y', colors='#355872', labelsize=9)
+        self.ax.grid(True, linestyle='--', alpha=0.3, color='#355872', zorder=0)
+
+        for spine in ['top', 'right']:
+            self.ax.spines[spine].set_visible(False)
+        for spine in ['left', 'bottom']:
+            self.ax.spines[spine].set_color('#355872')
+            self.ax.spines[spine].set_alpha(0.3)
+
+        legend = self.ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.2),
+                  ncol=1, frameon=False, fontsize=10,
+                  handlelength=1.5, handletextpad=0.5)
+        legend.get_texts()[0].set_color("#355872")
+
+        self.tooltip = self.ax.text(0, 0, "",
+            ha='center', va='bottom', fontsize=9, color='#355872',
+            bbox=dict(boxstyle="round,pad=0.4", fc="white", ec="#355872", lw=1),
+            zorder=10)
+        self.tooltip.set_visible(False)
+        self.canvas.draw_idle()
+
     def on_hover(self, event):
         vis = self.tooltip.get_visible()
         found = False
@@ -556,26 +691,37 @@ class LineChartCard(Card):
 
 # Main Window
 class PencapaianWindow(GradientBackground):
-    def __init__(self):
+    def __init__(self, user=None, session=None, on_logout=None, controller=None, on_back=None):
         super().__init__()
+        self.user = user
+        self.session = session
+        self.on_logout = on_logout
+        self.on_back = on_back
+        self.controller = controller or PencapaianController(PencapaianService(), viewer=self)
+        self.controller.set_viewer(self)
         self.setWindowTitle("SiMonPro - Pencapaian Produksi")
         self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self._drag_pos = None
         self.init_ui()
+        self.load_data()
 
     def init_ui(self):
         root = QHBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        root.addWidget(Sidebar())
+        self.sidebar = Sidebar()
+        self.sidebar.menu_clicked.connect(self._handle_menu_clicked)
+        if self.on_logout:
+            self.sidebar.logout_clicked.connect(self.on_logout)
+        root.addWidget(self.sidebar)
 
         content = QWidget()
         content.setStyleSheet("background: transparent;")
         c_lay = QVBoxLayout(content)
         c_lay.setContentsMargins(0, 0, 0, 0)
-        c_lay.addWidget(Topbar())
+        c_lay.addWidget(Topbar(user=self.user))
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -591,9 +737,12 @@ class PencapaianWindow(GradientBackground):
         # 1. Stats Row
         stats_lay = QHBoxLayout()
         stats_lay.setSpacing(20)
-        stats_lay.addWidget(StatCard("Rata-rata Efisiensi", "101.3%", "Bulan April 2026"), 1)
-        stats_lay.addWidget(StatCard("Total Output", "12,450", "Unit produksi"), 1)
-        stats_lay.addWidget(StatCard("Produktivitas Harian", "415", "Unit / hari"), 1)
+        self.card_efficiency = StatCard("Rata-rata Efisiensi", "0%", "-")
+        self.card_output = StatCard("Total Output", "0", "Unit produksi")
+        self.card_daily = StatCard("Produktivitas Harian", "0", "Unit / hari")
+        stats_lay.addWidget(self.card_efficiency, 1)
+        stats_lay.addWidget(self.card_output, 1)
+        stats_lay.addWidget(self.card_daily, 1)
         inner_lay.addLayout(stats_lay)
 
         # 2. Main Dashboard Layout (Grid-like)
@@ -602,14 +751,17 @@ class PencapaianWindow(GradientBackground):
 
         # Left Column (Pie Chart)
         left_col = QVBoxLayout()
-        left_col.addWidget(PieChartCard())
+        self.pie_chart = PieChartCard()
+        left_col.addWidget(self.pie_chart)
         dash_lay.addLayout(left_col, 1)
 
         # Right Column (Bar & Line Chart)
         right_col = QVBoxLayout()
         right_col.setSpacing(24)
-        right_col.addWidget(BarChartCard(), stretch=1)
-        right_col.addWidget(LineChartCard(), stretch=1)
+        self.bar_chart = BarChartCard()
+        self.line_chart = LineChartCard()
+        right_col.addWidget(self.bar_chart, stretch=1)
+        right_col.addWidget(self.line_chart, stretch=1)
         dash_lay.addLayout(right_col, 2)
 
         inner_lay.addLayout(dash_lay)
@@ -618,6 +770,31 @@ class PencapaianWindow(GradientBackground):
         scroll.setWidget(inner)
         c_lay.addWidget(scroll)
         root.addWidget(content)
+
+    def load_data(self):
+        self.controller.request_insight_pencapaian(months=4)
+
+    def tampilkan_insight_pencapaian(self, data):
+        summary = data["summary"]
+        charts = data["charts"]
+
+        self.card_efficiency.set_value(f"{summary['average_efficiency']}%")
+        self.card_efficiency.set_sub(summary["period_label"])
+        self.card_output.set_value(f"{summary['total_output']:,}")
+        self.card_output.set_sub(f"Target: {summary['target_total']:,}")
+        self.card_daily.set_value(f"{summary['daily_productivity']:,}")
+        self.card_daily.set_sub("Unit / hari produksi")
+
+        self.pie_chart.set_data(charts["distribution"])
+        self.bar_chart.set_data(charts["labels"], charts["target"], charts["actual"])
+        self.line_chart.set_data(charts["labels"], charts["efficiency"], data["insights"])
+
+    def tampilkan_error(self, pesan):
+        QMessageBox.warning(self, "Pencapaian Produksi", pesan)
+
+    def _handle_menu_clicked(self, label):
+        if label == "Dashboard" and self.on_back:
+            self.on_back()
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:

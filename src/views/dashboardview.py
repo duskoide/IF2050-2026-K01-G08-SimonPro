@@ -12,6 +12,7 @@ from PyQt6.QtWidgets import (QApplication, QFrame, QGraphicsDropShadowEffect,
                              QSizePolicy, QVBoxLayout, QWidget)
 
 from src.services.DashboardService import DashboardService
+from src.views.pencapaianviewer import PencapaianWindow
 
 
 # Background radial gradient
@@ -292,6 +293,7 @@ class Sidebar(QFrame):
     ]
 
     logout_clicked = pyqtSignal()
+    menu_clicked = pyqtSignal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -328,7 +330,9 @@ class Sidebar(QFrame):
         lay.addSpacing(8)
 
         for icon_name, label, active in self.MENU:
-            lay.addWidget(self._menu_btn(icon_name, label, active))
+            menu_btn = self._menu_btn(icon_name, label, active)
+            menu_btn.mousePressEvent = self._make_menu_handler(label)
+            lay.addWidget(menu_btn)
             lay.addSpacing(6)
 
         lay.addStretch()
@@ -341,6 +345,12 @@ class Sidebar(QFrame):
         )
         lay.addWidget(logout_btn)
         lay.addSpacing(16)
+
+    def _make_menu_handler(self, label):
+        return lambda event: (
+            self.menu_clicked.emit(label)
+            if event.button() == Qt.MouseButton.LeftButton else None
+        )
 
     def _menu_btn(self, icon_name, label, active):
         btn = QFrame()
@@ -441,6 +451,7 @@ class DashboardWindow(GradientBackground):
         self.user = user
         self.session = session
         self.on_logout = on_logout
+        self.pencapaian_window = None
         self.dashboard_service = DashboardService()
         self.setWindowTitle("SiMonPro - Dashboard")
         self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
@@ -456,6 +467,7 @@ class DashboardWindow(GradientBackground):
 
         # Sidebar
         self.sidebar = Sidebar()
+        self.sidebar.menu_clicked.connect(self._handle_menu_clicked)
         if self.on_logout:
             self.sidebar.logout_clicked.connect(self.on_logout)
         root.addWidget(self.sidebar)
@@ -566,6 +578,33 @@ class DashboardWindow(GradientBackground):
             )
         except Exception as e:
             print(f"[Dashboard] Gagal memuat data: {e}")
+
+    def _handle_menu_clicked(self, label):
+        if label == "Pencapaian":
+            self._open_pencapaian()
+
+    def _open_pencapaian(self):
+        self.pencapaian_window = PencapaianWindow(
+            user=self.user,
+            session=self.session,
+            on_logout=self._handle_child_logout,
+            on_back=self._show_dashboard,
+        )
+        self.pencapaian_window.showMaximized()
+        self.hide()
+
+    def _show_dashboard(self):
+        if self.pencapaian_window:
+            self.pencapaian_window.close()
+            self.pencapaian_window = None
+        self.showMaximized()
+
+    def _handle_child_logout(self):
+        if self.pencapaian_window:
+            self.pencapaian_window.close()
+            self.pencapaian_window = None
+        if self.on_logout:
+            self.on_logout()
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
