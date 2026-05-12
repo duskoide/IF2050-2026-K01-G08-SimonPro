@@ -44,14 +44,14 @@ class SuccessPopup(QWidget):
 
         # Teks pesan
         self.lbl_message = QLabel("produk berhasil disimpan")
-        self.lbl_message.setStyleSheet("""
-            QLabel {
+        self.lbl_message.setStyleSheet(f"""
+            QLabel {{
                 color: {self.text_color};
                 font-size: 22px;
                 font-weight: 600;
                 background: transparent;
                 border: none;
-            }
+            }}
         """)
         self.lbl_message.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 

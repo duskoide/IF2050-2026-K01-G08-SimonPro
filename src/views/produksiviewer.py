@@ -13,7 +13,7 @@ from PyQt6.QtGui import (
     QPainter, QLinearGradient, QColor,
     QBrush, QPixmap, QIntValidator, QKeyEvent
 )
-from PyQt6.QtCore import Qt, QSize, QDate, QEvent
+from PyQt6.QtCore import Qt, QSize, QDate, QEvent, pyqtSignal
 import qtawesome as qta
 
 #Background
@@ -60,10 +60,33 @@ class Sidebar(QFrame):
         ("mdi.file-document-outline", "Laporan", False),
     ]
 
+    ACTIVE_STYLE = """
+        QFrame#menuBtn {
+            background: #9CD5FF;
+            border-radius: 10px;
+            border: none;
+        }
+    """
+    INACTIVE_STYLE = """
+        QFrame#menuBtn {
+            background: transparent;
+            border: none;
+        }
+        QFrame#menuBtn:hover {
+            background: rgba(156,213,255,0.12);
+            border-radius: 10px;
+        }
+    """
+
+    logout_clicked = pyqtSignal()
+    menu_changed = pyqtSignal(str)
+    menu_clicked = pyqtSignal(str)
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setFixedWidth(230)
-        self.setStyleSheet(f"QFrame {{ background:{"#355872"}; border:none; }}")
+        self.setStyleSheet("QFrame { background:#355872; border:none; }")
+        self._menu_btns = {}
 
         lay = QVBoxLayout(self)
         lay.setContentsMargins(18, 10, 18, 10)
@@ -83,7 +106,9 @@ class Sidebar(QFrame):
         logo_ico.setAlignment(Qt.AlignmentFlag.AlignCenter)
         logo_ico.setMinimumHeight(50)
         logo_txt = QLabel("SiMonPro")
-        logo_txt.setStyleSheet(f"color:{"#F7F8F0"}; font-size:24px; font-weight:700; border:none; background:transparent;")
+        logo_txt.setStyleSheet(
+            "color:#F7F8F0; font-size:24px; font-weight:700; border:none; background:transparent;"
+        )
         logo_lay.addWidget(logo_ico)
         logo_lay.addWidget(logo_txt)
         logo_lay.addStretch()
@@ -96,42 +121,73 @@ class Sidebar(QFrame):
         lay.addSpacing(8)
 
         for icon_name, label, active in self.MENU:
-            lay.addWidget(self._menu_btn(icon_name, label, active))
+            btn = self._menu_btn(icon_name, label, active)
+            self._menu_btns[label] = btn
+            btn.mousePressEvent = self._make_menu_handler(label)
+            lay.addWidget(btn)
             lay.addSpacing(6)
+
+        self.set_active("Input Produksi")
 
         lay.addStretch()
 
-        lay.addWidget(self._menu_btn("mdi.logout", "Keluar", False))
+        logout_btn = self._menu_btn("mdi.logout", "Keluar", False)
+        logout_btn.mousePressEvent = self._make_logout_handler()
+        lay.addWidget(logout_btn)
         lay.addSpacing(16)
+
+    def _make_menu_handler(self, label):
+        def handler(event):
+            if event.button() == Qt.MouseButton.LeftButton:
+                self.menu_changed.emit(label)
+                self.menu_clicked.emit(label)
+        return handler
+
+    def _make_logout_handler(self):
+        def handler(event):
+            if event.button() == Qt.MouseButton.LeftButton:
+                self.logout_clicked.emit()
+        return handler
+
+    def set_active(self, label):
+        for lbl, btn in self._menu_btns.items():
+            icon_name = next(
+                (i for i, label_text, _ in self.MENU if label_text == lbl), None
+            )
+            if lbl == label:
+                btn.setStyleSheet(self.ACTIVE_STYLE)
+                ico_color = "#355872"
+                txt_color = "#355872"
+                txt_weight = "700"
+            else:
+                btn.setStyleSheet(self.INACTIVE_STYLE)
+                ico_color = "#F7F8F0"
+                txt_color = "#F7F8F0"
+                txt_weight = "600"
+            row_lay = btn.layout()
+            ico_lbl = row_lay.itemAt(0).widget()
+            txt_lbl = row_lay.itemAt(1).widget()
+            if icon_name:
+                ico_lbl.setPixmap(qta.icon(icon_name, color=ico_color).pixmap(24, 24))
+            font_size = "16px" if lbl == "Input Produksi" else "18px"
+            txt_lbl.setStyleSheet(
+                f"color:{txt_color}; font-size:{font_size}; font-weight:{txt_weight}; border:none; background:transparent;"
+            )
 
     def _menu_btn(self, icon_name, label, active):
         btn = QFrame()
+        btn.setObjectName("menuBtn")
         btn.setFixedHeight(44)
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
 
         if active:
-            btn.setStyleSheet(f"""
-                QFrame {{
-                    background: {"#9CD5FF"};
-                    border-radius: 10px;
-                    border: none;
-                }}
-            """)
+            btn.setStyleSheet(self.ACTIVE_STYLE)
             ico_color  = "#355872"
             txt_color  = "#355872"
             txt_weight = "700"
-           
+            
         else:
-            btn.setStyleSheet("""
-                QFrame {
-                    background: transparent;
-                    border: none;
-                }
-                QFrame:hover {
-                    background: rgba(156,213,255,0.12);
-                    border-radius: 10px;
-                }
-            """)
+            btn.setStyleSheet(self.INACTIVE_STYLE)
             ico_color  = "#F7F8F0"
             txt_color  = "#F7F8F0"
             txt_weight = "600"
@@ -151,7 +207,9 @@ class Sidebar(QFrame):
             font_size = "16px"  
         else:
             font_size = "18px"
-        lbl.setStyleSheet(f"color:{txt_color}; font-size:{font_size}; font-weight:{txt_weight}; border:none; background:transparent;")
+        lbl.setStyleSheet(
+            f"color:{txt_color}; font-size:{font_size}; font-weight:{txt_weight}; border:none; background:transparent;"
+        )
 
         row.addWidget(ico)
         row.addWidget(lbl)
@@ -161,8 +219,9 @@ class Sidebar(QFrame):
 
 #Topbar
 class Topbar(QFrame):
-    def __init__(self, parent=None):
+    def __init__(self, user=None, parent=None):
         super().__init__(parent)
+        self.user = user
         self.setFixedHeight(70)
         self.setStyleSheet("background:transparent; border:none;")
 
@@ -170,7 +229,9 @@ class Topbar(QFrame):
         lay.setContentsMargins(28, 25, 28, 0)
 
         title = QLabel("Input Produksi")
-        title.setStyleSheet(f"color:{"#355872"}; font-size:36px; font-weight:700; border:none; background:transparent;")
+        title.setStyleSheet(
+            "color:#355872; font-size:36px; font-weight:700; border:none; background:transparent;"
+        )
         lay.addWidget(title)
         lay.addStretch()
 
@@ -179,10 +240,16 @@ class Topbar(QFrame):
         user_ico.setPixmap(qta.icon("fa5s.user-circle", color="#355872").pixmap(50, 50))
         user_ico.setStyleSheet("border:none; background:transparent;")
 
-        name_lbl = QLabel("Yumna Fathonah")
-        name_lbl.setStyleSheet(f"color:{"#355872"}; font-size:18px; font-weight:700; border:none; background:transparent;")
-        role_lbl = QLabel("Admin")
-        role_lbl.setStyleSheet(f"color:{"#355872"}; font-size:14px; font-weight:400; border:none; background:transparent;")
+        name = user.username if user else "Admin"
+        role = user.role if user else "Admin"
+        name_lbl = QLabel(name)
+        name_lbl.setStyleSheet(
+            "color:#355872; font-size:18px; font-weight:700; border:none; background:transparent;"
+        )
+        role_lbl = QLabel(role)
+        role_lbl.setStyleSheet(
+            "color:#355872; font-size:14px; font-weight:400; border:none; background:transparent;"
+        )
 
         info_col = QFrame()
         info_col.setStyleSheet("background:transparent; border:none;")
@@ -592,11 +659,26 @@ class BottomBar(QFrame):
 
 #Main Window
 class InputProduksiWindow(GradientBackground):
-    def __init__(self):
+    logout_clicked = pyqtSignal()
+
+    def __init__(
+        self,
+        user=None,
+        session=None,
+        on_logout=None,
+        embedded=False,
+        on_back=None,
+    ):
         super().__init__()
-        self.setWindowTitle("SiMonPro - Input Produksi")
-        self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.user = user
+        self.session = session
+        self.on_logout = on_logout
+        self.embedded = embedded
+        self.on_back = on_back
+        if not embedded:
+            self.setWindowTitle("SiMonPro - Input Produksi")
+            self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
+            self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self._drag_pos = None
         self.init_ui()
 
@@ -605,14 +687,22 @@ class InputProduksiWindow(GradientBackground):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        root.addWidget(Sidebar())
+        if not self.embedded:
+            self.sidebar = Sidebar()
+            self.sidebar.menu_changed.connect(self.navigate_to)
+            self.sidebar.menu_changed.connect(self.sidebar.set_active)
+            self.sidebar.menu_clicked.connect(self._handle_menu_clicked)
+            self.sidebar.logout_clicked.connect(self.logout_clicked)
+            if self.on_logout:
+                self.sidebar.logout_clicked.connect(self.on_logout)
+            root.addWidget(self.sidebar)
 
         content = QWidget()
         content.setStyleSheet("background: transparent;")
         c_lay = QVBoxLayout(content)
         c_lay.setContentsMargins(0, 0, 0, 0)
         c_lay.setSpacing(0)
-        c_lay.addWidget(Topbar())
+        c_lay.addWidget(Topbar(user=self.user))
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
@@ -635,6 +725,20 @@ class InputProduksiWindow(GradientBackground):
         c_lay.addWidget(scroll)
         root.addWidget(content)
 
+    def navigate_to(self, label):
+        if self.embedded:
+            parent = self.parent()
+            while parent and not hasattr(parent, "navigate_to"):
+                parent = parent.parent()
+            if parent and hasattr(parent, "navigate_to"):
+                parent.navigate_to(label)
+
+    def _handle_menu_clicked(self, label):
+        if label == "Input Produksi":
+            return
+        if self.on_back:
+            self.on_back(label)
+
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
             self._drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
@@ -649,7 +753,7 @@ class InputProduksiWindow(GradientBackground):
         self._drag_pos = None
 
     def keyPressEvent(self, event):
-        if event.key() == Qt.Key.Key_Escape:
+        if not self.embedded and event.key() == Qt.Key.Key_Escape:
             self.close()
 
 if __name__ == "__main__":

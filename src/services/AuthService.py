@@ -1,9 +1,6 @@
-import sys, os
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-
-from database.db_connection import get_db
-from services.UserDataLocal import UserDataLocal
-from models.Session import Session
+from src.database.db_connection import get_db
+from src.services.UserDataLocal import UserDataLocal
+from src.models.Session import Session
 
 class AuthService:
     def __init__(self):

@@ -68,12 +68,32 @@ class Sidebar(QFrame):
     ]
 
     logout_clicked = pyqtSignal()
+    menu_changed = pyqtSignal(str)
     menu_clicked = pyqtSignal(str)
+
+    ACTIVE_STYLE = """
+        QFrame#menuBtn {
+            background: #9CD5FF;
+            border-radius: 10px;
+            border: none;
+        }
+    """
+    INACTIVE_STYLE = """
+        QFrame#menuBtn {
+            background: transparent;
+            border: none;
+        }
+        QFrame#menuBtn:hover {
+            background: rgba(156,213,255,0.12);
+            border-radius: 10px;
+        }
+    """
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setFixedWidth(230)
-        self.setStyleSheet(f"QFrame {{ background:{"#355872"}; border:none; }}")
+        self.setStyleSheet("QFrame { background:#355872; border:none; }")
+        self._menu_btns = {}
 
         lay = QVBoxLayout(self)
         lay.setContentsMargins(18, 10, 18, 10)
@@ -93,7 +113,9 @@ class Sidebar(QFrame):
         logo_ico.setAlignment(Qt.AlignmentFlag.AlignCenter)
         logo_ico.setMinimumHeight(50)
         logo_txt = QLabel("SiMonPro")
-        logo_txt.setStyleSheet(f"color:{"#F7F8F0"}; font-size:24px; font-weight:700; border:none; background:transparent;")
+        logo_txt.setStyleSheet(
+            "color:#F7F8F0; font-size:24px; font-weight:700; border:none; background:transparent;"
+        )
         logo_lay.addWidget(logo_ico)
         logo_lay.addWidget(logo_txt)
         logo_lay.addStretch()
@@ -107,54 +129,72 @@ class Sidebar(QFrame):
 
         for icon_name, label, active in self.MENU:
             menu_btn = self._menu_btn(icon_name, label, active)
+            self._menu_btns[label] = menu_btn
             menu_btn.mousePressEvent = self._make_menu_handler(label)
             lay.addWidget(menu_btn)
             lay.addSpacing(6)
 
+        self.set_active("Pencapaian")
+
         lay.addStretch()
 
         logout_btn = self._menu_btn("mdi.logout", "Keluar", False)
-        logout_btn.mousePressEvent = lambda event: (
-            self.logout_clicked.emit()
-            if event.button() == Qt.MouseButton.LeftButton else None
-        )
+        logout_btn.mousePressEvent = self._make_logout_handler()
         lay.addWidget(logout_btn)
         lay.addSpacing(16)
 
     def _make_menu_handler(self, label):
-        return lambda event: (
-            self.menu_clicked.emit(label)
-            if event.button() == Qt.MouseButton.LeftButton else None
-        )
+        def handler(event):
+            if event.button() == Qt.MouseButton.LeftButton:
+                self.menu_changed.emit(label)
+                self.menu_clicked.emit(label)
+        return handler
+
+    def _make_logout_handler(self):
+        def handler(event):
+            if event.button() == Qt.MouseButton.LeftButton:
+                self.logout_clicked.emit()
+        return handler
+
+    def set_active(self, label):
+        for lbl, btn in self._menu_btns.items():
+            icon_name = next(
+                (i for i, label_text, _ in self.MENU if label_text == lbl), None
+            )
+            if lbl == label:
+                btn.setStyleSheet(self.ACTIVE_STYLE)
+                ico_color = "#355872"
+                txt_color = "#355872"
+                txt_weight = "700"
+            else:
+                btn.setStyleSheet(self.INACTIVE_STYLE)
+                ico_color = "#F7F8F0"
+                txt_color = "#F7F8F0"
+                txt_weight = "600"
+            row_lay = btn.layout()
+            ico_lbl = row_lay.itemAt(0).widget()
+            txt_lbl = row_lay.itemAt(1).widget()
+            if icon_name:
+                ico_lbl.setPixmap(qta.icon(icon_name, color=ico_color).pixmap(24, 24))
+            font_size = "16px" if lbl == "Input Produksi" else "18px"
+            txt_lbl.setStyleSheet(
+                f"color:{txt_color}; font-size:{font_size}; font-weight:{txt_weight}; border:none; background:transparent;"
+            )
 
     def _menu_btn(self, icon_name, label, active):
         btn = QFrame()
+        btn.setObjectName("menuBtn")
         btn.setFixedHeight(44)
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
 
         if active:
-            btn.setStyleSheet(f"""
-                QFrame {{
-                    background: {"#9CD5FF"};
-                    border-radius: 10px;
-                    border: none;
-                }}
-            """)
+            btn.setStyleSheet(self.ACTIVE_STYLE)
             ico_color  = "#355872"
             txt_color  = "#355872"
             txt_weight = "700"
-           
+            
         else:
-            btn.setStyleSheet("""
-                QFrame {
-                    background: transparent;
-                    border: none;
-                }
-                QFrame:hover {
-                    background: rgba(156,213,255,0.12);
-                    border-radius: 10px;
-                }
-            """)
+            btn.setStyleSheet(self.INACTIVE_STYLE)
             ico_color  = "#F7F8F0"
             txt_color  = "#F7F8F0"
             txt_weight = "600"
@@ -174,7 +214,9 @@ class Sidebar(QFrame):
             font_size = "16px"  
         else:
             font_size = "18px"
-        lbl.setStyleSheet(f"color:{txt_color}; font-size:{font_size}; font-weight:{txt_weight}; border:none; background:transparent;")
+        lbl.setStyleSheet(
+            f"color:{txt_color}; font-size:{font_size}; font-weight:{txt_weight}; border:none; background:transparent;"
+        )
 
         row.addWidget(ico)
         row.addWidget(lbl)
@@ -194,7 +236,9 @@ class Topbar(QFrame):
         lay.setContentsMargins(28, 25, 28, 0)
 
         title = QLabel("Pencapaian Produksi")
-        title.setStyleSheet(f"color:{"#355872"}; font-size:36px; font-weight:700; border:none; background:transparent;")
+        title.setStyleSheet(
+            "color:#355872; font-size:36px; font-weight:700; border:none; background:transparent;"
+        )
         lay.addWidget(title)
         lay.addStretch()
 
@@ -206,9 +250,13 @@ class Topbar(QFrame):
         name = user.username if user else "Admin"
         role = user.role if user else "Admin"
         name_lbl = QLabel(name)
-        name_lbl.setStyleSheet(f"color:{"#355872"}; font-size:18px; font-weight:700; border:none; background:transparent;")
+        name_lbl.setStyleSheet(
+            "color:#355872; font-size:18px; font-weight:700; border:none; background:transparent;"
+        )
         role_lbl = QLabel(role)
-        role_lbl.setStyleSheet(f"color:{"#355872"}; font-size:14px; font-weight:400; border:none; background:transparent;")
+        role_lbl.setStyleSheet(
+            "color:#355872; font-size:14px; font-weight:400; border:none; background:transparent;"
+        )
 
         info_col = QFrame()
         info_col.setStyleSheet("background:transparent; border:none;")
@@ -713,6 +761,7 @@ class PencapaianWindow(GradientBackground):
 
         self.sidebar = Sidebar()
         self.sidebar.menu_clicked.connect(self._handle_menu_clicked)
+        self.sidebar.menu_changed.connect(self.sidebar.set_active)
         if self.on_logout:
             self.sidebar.logout_clicked.connect(self.on_logout)
         root.addWidget(self.sidebar)
@@ -793,8 +842,10 @@ class PencapaianWindow(GradientBackground):
         QMessageBox.warning(self, "Pencapaian Produksi", pesan)
 
     def _handle_menu_clicked(self, label):
-        if label == "Dashboard" and self.on_back:
-            self.on_back()
+        if label == "Pencapaian":
+            return
+        if self.on_back:
+            self.on_back(label)
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:

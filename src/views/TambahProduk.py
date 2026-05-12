@@ -7,7 +7,7 @@ os.environ['QT_API'] = 'pyqt6'
 from PyQt6.QtWidgets import (
     QApplication, QDialog, QVBoxLayout, QHBoxLayout,
     QLabel, QComboBox, QLineEdit, QPushButton, QFrame,
-    QListView, QWidget
+    QListView, QWidget, QGraphicsDropShadowEffect
 )
 
 from PyQt6.QtCore import (Qt, QSize)
@@ -18,6 +18,7 @@ from PyQt6.QtGui import (
     QColor,
     QBrush,
     QPainterPath,
+    QRadialGradient,
 )
 
 import qtawesome as qta
@@ -42,13 +43,10 @@ class GradientCard(QWidget):
 
         painter.setClipPath(path)
 
-        gradient = QLinearGradient(
-            0, 0,
-            self.width(), self.height()
-        )
-        gradient.setColorAt(0.0,  QColor("#F7F8F0"))
-        gradient.setColorAt(0.65, QColor("#EEF4F6"))
-        gradient.setColorAt(1.0,  QColor("#D6ECFA"))
+        gradient = QRadialGradient(self.width() / 2, self.height() / 2, self.width())
+        gradient.setColorAt(0.0, QColor("#F7F8F0"))
+        gradient.setColorAt(0.5, QColor("#DCEEF4"))
+        gradient.setColorAt(1.0, QColor("#9CD5FF"))
 
         painter.fillRect(self.rect(), QBrush(gradient))
 
@@ -83,6 +81,12 @@ class TambahProdukDialog(QDialog):
             parent=self
         )
         self.card.setFixedSize(650, 640)
+
+        shadow = QGraphicsDropShadowEffect(self.card)
+        shadow.setBlurRadius(28)
+        shadow.setOffset(0, 8)
+        shadow.setColor(QColor(0, 0, 0, 50))
+        self.card.setGraphicsEffect(shadow)
 
         # Posisi card: tengah layar
         card_x = (screen.width()  - self.card.width())  // 2

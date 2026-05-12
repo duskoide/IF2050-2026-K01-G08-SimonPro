@@ -184,24 +184,6 @@ class EditKategoriDialog(GradientDialog):
                 font-weight: 600;
             }}
 
-            QComboBox QAbstractItemView::item {{
-                min-height: 30px;
-                padding-left: 10px;
-                font-size: 16px;
-                color: #355872;
-            }}
-
-            QComboBox QAbstractItemView::item:hover {{
-                background-color: #DCEEF4;
-                color: #355872;
-            }}
-
-            QComboBox QAbstractItemView::item:selected {{
-                background-color: #E3F3FF;
-                color: #355872;
-                font-weight: 600;
-            }}
-
             QListView {{
                 border: 1px solid #355872;
                 background: #F7F8F0;

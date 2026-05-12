@@ -32,6 +32,8 @@ from PyQt6.QtWidgets import (
 from src.services.DashboardService import DashboardService
 from src.views.targetviewer import TargetWindow
 from src.views.pencapaianviewer import PencapaianWindow
+from src.views.defectviewer import DefectWindow
+from src.views.produksiviewer import InputProduksiWindow
 
 
 # Background radial gradient
@@ -52,13 +54,15 @@ class GradientBackground(QWidget):
 class Card(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setStyleSheet(f"""
-            QFrame {{
-                background-color: {"#FFFFFF"};
+        self.setStyleSheet(
+            """
+            QFrame {
+                background-color: #FFFFFF;
                 border-radius: 15px;
-                border: 1px solid {"#35587226"};
-            }}
-        """)
+                border: 1px solid #35587226;
+            }
+            """
+        )
         shadow = QGraphicsDropShadowEffect(self)
         shadow.setBlurRadius(25)
         shadow.setOffset(0, 6)
@@ -361,18 +365,18 @@ class Sidebar(QFrame):
     ]
 
     ACTIVE_STYLE = """
-        QFrame {
+        QFrame#menuBtn {
             background: #9CD5FF;
             border-radius: 10px;
             border: none;
         }
     """
     INACTIVE_STYLE = """
-        QFrame {
+        QFrame#menuBtn {
             background: transparent;
             border: none;
         }
-        QFrame:hover {
+        QFrame#menuBtn:hover {
             background: rgba(156,213,255,0.12);
             border-radius: 10px;
         }
@@ -429,16 +433,8 @@ class Sidebar(QFrame):
         for icon_name, label in self.MENU:
             btn = self._menu_btn(icon_name, label)
             self._menu_btns[label] = btn
-            btn.mousePressEvent = lambda event, lbl=label: (
-                self.menu_changed.emit(lbl)
-                if event.button() == Qt.MouseButton.LeftButton
-                else None
-            )
+            btn.mousePressEvent = self._make_menu_handler(label)
             lay.addWidget(btn)
-        for icon_name, label, active in self.MENU:
-            menu_btn = self._menu_btn(icon_name, label, active)
-            menu_btn.mousePressEvent = self._make_menu_handler(label)
-            lay.addWidget(menu_btn)
             lay.addSpacing(6)
 
         self.set_active("Dashboard")
@@ -447,11 +443,7 @@ class Sidebar(QFrame):
 
         # Logout button — clickable
         logout_btn = self._menu_btn("mdi.logout", "Keluar")
-        logout_btn.mousePressEvent = lambda event: (
-            self.logout_clicked.emit()
-            if event.button() == Qt.MouseButton.LeftButton
-            else None
-        )
+        logout_btn.mousePressEvent = self._make_logout_handler()
         lay.addWidget(logout_btn)
         lay.addSpacing(16)
 
@@ -478,14 +470,8 @@ class Sidebar(QFrame):
             )
 
     def _menu_btn(self, icon_name, label):
-    def _make_menu_handler(self, label):
-        return lambda event: (
-            self.menu_clicked.emit(label)
-            if event.button() == Qt.MouseButton.LeftButton else None
-        )
-
-    def _menu_btn(self, icon_name, label, active):
         btn = QFrame()
+        btn.setObjectName("menuBtn")
         btn.setFixedHeight(44)
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         btn.setStyleSheet(self.INACTIVE_STYLE)
@@ -514,6 +500,19 @@ class Sidebar(QFrame):
         row.addStretch()
 
         return btn
+
+    def _make_menu_handler(self, label):
+        def handler(event):
+            if event.button() == Qt.MouseButton.LeftButton:
+                self.menu_changed.emit(label)
+                self.menu_clicked.emit(label)
+        return handler
+
+    def _make_logout_handler(self):
+        def handler(event):
+            if event.button() == Qt.MouseButton.LeftButton:
+                self.logout_clicked.emit()
+        return handler
 
 
 # Topbar
@@ -588,6 +587,8 @@ class DashboardWindow(GradientBackground):
         self.on_logout = on_logout
         self._target_window = None
         self.pencapaian_window = None
+        self.defect_window = None
+        self.input_window = None
         self.dashboard_service = DashboardService()
         self.setWindowTitle("SiMonPro - Dashboard")
         self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
@@ -605,7 +606,6 @@ class DashboardWindow(GradientBackground):
 
         # Sidebar
         self.sidebar = Sidebar()
-        self.sidebar.logout_clicked.connect(self.on_logout)
         self.sidebar.menu_changed.connect(self.navigate_to)
         self.sidebar.menu_changed.connect(self.sidebar.set_active)
         self.sidebar.menu_clicked.connect(self._handle_menu_clicked)
@@ -706,10 +706,31 @@ class DashboardWindow(GradientBackground):
             embedded=True,
         )
         # Page 2 — Target
-        self.target_page = TargetWindow(embedded=True)
+        self.target_page = TargetWindow(
+            user=self.user,
+            session=self.session,
+            on_logout=self.on_logout,
+            embedded=True,
+        )
+        # Page 3 — Defect
+        self.defect_page = DefectWindow(
+            user=self.user,
+            session=self.session,
+            on_logout=self.on_logout,
+            embedded=True,
+        )
+        # Page 4 — Input Produksi
+        self.input_page = InputProduksiWindow(
+            user=self.user,
+            session=self.session,
+            on_logout=self.on_logout,
+            embedded=True,
+        )
         self.pages.addWidget(dashboard_page)
         self.pages.addWidget(self.produk_page)
         self.pages.addWidget(self.target_page)
+        self.pages.addWidget(self.defect_page)
+        self.pages.addWidget(self.input_page)
 
         root.addWidget(self.pages)
 
@@ -719,6 +740,12 @@ class DashboardWindow(GradientBackground):
             return
         if label == "Target":
             self.pages.setCurrentIndex(2)
+            return
+        if label == "Defect":
+            self.pages.setCurrentIndex(3)
+            return
+        if label == "Input Produksi":
+            self.pages.setCurrentIndex(4)
             return
 
         self.pages.setCurrentIndex(0)
@@ -758,27 +785,51 @@ class DashboardWindow(GradientBackground):
     def _handle_menu_clicked(self, label):
         if label == "Pencapaian":
             self._open_pencapaian()
+        elif label in (
+            "Dashboard",
+            "Produk",
+            "Target",
+            "Defect",
+            "Input Produksi",
+            "Laporan",
+        ):
+            self.navigate_to(label)
 
     def _open_pencapaian(self):
         self.pencapaian_window = PencapaianWindow(
             user=self.user,
             session=self.session,
             on_logout=self._handle_child_logout,
-            on_back=self._show_dashboard,
+            on_back=self._navigate_from_child,
         )
         self.pencapaian_window.showMaximized()
         self.hide()
+
+    def _navigate_from_child(self, label):
+        if self.pencapaian_window:
+            self.pencapaian_window.close()
+            self.pencapaian_window = None
+        if self.defect_window:
+            self.defect_window.close()
+            self.defect_window = None
+        self.navigate_to(label)
 
     def _show_dashboard(self):
         if self.pencapaian_window:
             self.pencapaian_window.close()
             self.pencapaian_window = None
+        if self.defect_window:
+            self.defect_window.close()
+            self.defect_window = None
         self.showMaximized()
 
     def _handle_child_logout(self):
         if self.pencapaian_window:
             self.pencapaian_window.close()
             self.pencapaian_window = None
+        if self.defect_window:
+            self.defect_window.close()
+            self.defect_window = None
         if self.on_logout:
             self.on_logout()
 

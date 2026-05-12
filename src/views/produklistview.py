@@ -28,6 +28,7 @@ from src.views.KategoriView import EditKategoriDialog
 from src.views.TambahProduk import TambahProdukDialog
 from src.views.EditProduk import EditProdukDialog
 from src.database.db_connection import get_db
+from src.services.KategoriService import KategoriService
 from src.services.ProdukService import ProdukService
 from src.models.Produk import Produk
 from src.utils.image_utils import load_product_pixmap
@@ -183,18 +184,18 @@ class Sidebar(QFrame):
     ]
 
     ACTIVE_STYLE = """
-        QFrame {
+        QFrame#menuBtn {
             background: #9CD5FF;
             border-radius: 10px;
             border: none;
         }
     """
     INACTIVE_STYLE = """
-        QFrame {
+        QFrame#menuBtn {
             background: transparent;
             border: none;
         }
-        QFrame:hover {
+        QFrame#menuBtn:hover {
             background: rgba(156,213,255,0.12);
             border-radius: 10px;
         }
@@ -296,6 +297,7 @@ class Sidebar(QFrame):
 
     def _menu_btn(self, icon_name, label):
         btn = QFrame()
+        btn.setObjectName("menuBtn")
         btn.setFixedHeight(44)
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         btn.setStyleSheet(self.INACTIVE_STYLE)
@@ -637,7 +639,8 @@ class ProdukWindow(GradientBackground):
         # Sidebar hanya dirender saat jendela mandiri
         if not self.embedded:
             sidebar = Sidebar()
-            sidebar.logout_clicked.connect(self.on_logout)
+            if self.on_logout:
+                sidebar.logout_clicked.connect(self.on_logout)
             sidebar.menu_changed.connect(self.navigate_to)
             root.addWidget(sidebar)
 
@@ -708,18 +711,6 @@ class ProdukWindow(GradientBackground):
             print(f"[ProdukWindow] Gagal generate kode produk: {e}")
         try:
             kategori_list = self._produk_service.get_daftar_kategori()
-            # Ambil daftar kategori dari database
-            kategori_service = KategoriService()
-            daftar_kategori = kategori_service.getDaftarKategori()
-            categories = [k.nama_kategori for k in daftar_kategori]
-
-            dialog = EditProdukDialog(
-                produk=produk,
-                categories=categories,
-                parent=self
-            )
-            dialog.exec()
-            self.load_produk()
         except Exception as e:
             print(f"[ProdukWindow] Gagal memuat kategori: {e}")
 
@@ -728,7 +719,6 @@ class ProdukWindow(GradientBackground):
             categories=kategori_list,
             parent=self,
         )
-        dialog.btn_simpan.clicked.connect(dialog.accept)
         if dialog.exec():
             self.load_produk()
 
@@ -736,15 +726,17 @@ class ProdukWindow(GradientBackground):
         if not produk:
             return
         dialog = EditProdukDialog(produk=produk, parent=self)
-        dialog.btn_simpan.clicked.connect(dialog.accept)
-        dialog.btn_hapus.clicked.connect(dialog.accept)
         if dialog.exec():
             self.load_produk()
 
     def navigate_to(self, label):
         # Saat embedded, delegasikan ke DashboardWindow via parent
-        if self.embedded and hasattr(self.parent(), "navigate_to"):
-            self.parent().navigate_to(label)
+        if self.embedded:
+            parent = self.parent()
+            while parent and not hasattr(parent, "navigate_to"):
+                parent = parent.parent()
+            if parent and hasattr(parent, "navigate_to"):
+                parent.navigate_to(label)
 
     def keyPressEvent(self, event):
         if not self.embedded and event.key() == Qt.Key.Key_Escape:
