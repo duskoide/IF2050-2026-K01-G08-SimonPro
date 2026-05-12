@@ -28,7 +28,7 @@ from src.utils.image_utils import pick_image_file, save_image_to_app
 
 # ── Gradient Card Widget ───────────────────────────────────────────────────────
 # Sekarang jadi QWidget biasa (bukan QDialog),
-# karena dia akan di-embed ke dalam OverlayDialog
+# karena dia akan di-embed ke dalam EditProdukDialog
 class GradientCard(QWidget):
     RADIUS = 20
 
@@ -57,7 +57,7 @@ class GradientCard(QWidget):
 
 
 # ── Overlay Dialog (layer hitam fullscreen) ────────────────────────────────────
-class OverlayDialog(QDialog):
+class EditProdukDialog(QDialog):
     """
     Layer paling belakang: fullscreen, hitam semi-transparan.
     Card EditProduk di-stack di atasnya sebagai child widget.
@@ -66,7 +66,7 @@ class OverlayDialog(QDialog):
     # Ubah nilai alpha (0–255) untuk mengatur opacity overlay
     OVERLAY_COLOR = (0, 0, 0, 160)   # rgba
 
-    def __init__(self, produk=None, parent=None):
+    def __init__(self, produk=None, categories: list[str] = None, parent=None):
         super().__init__(parent)
 
         self.setWindowFlags(
@@ -80,7 +80,11 @@ class OverlayDialog(QDialog):
         self.setGeometry(screen)
 
         # ── Buat card dan taruh di tengah ────────────────────────────────
-        self.card = EditProdukCard(produk=produk, parent=self)
+        self.card = EditProdukCard(
+            produk=produk,
+            categories=categories,
+            parent=self
+        )
         self.card.setFixedSize(650, 610)
 
         # Posisi card: tengah layar, geser +140 ke kanan (sama seperti semula)
@@ -112,10 +116,11 @@ class EditProdukCard(GradientCard):
         }}
     """
 
-    def __init__(self, produk=None, parent=None):
+    def __init__(self, produk=None, categories: list[str] = None, parent=None):
         super().__init__(parent)
 
         self.produk = produk
+        self._categories = categories or []
         self._selected_image_path: str | None = None
 
         self._init_ui()
@@ -183,7 +188,7 @@ class EditProdukCard(GradientCard):
                 background-color: rgba(156, 213, 255, 0.4);
             }
         """)
-        # Catatan: koneksi .clicked dilakukan di OverlayDialog
+        # Catatan: koneksi .clicked dilakukan di EditProdukDialog
 
         card.setStyleSheet("""
             background: transparent;
@@ -227,7 +232,7 @@ class EditProdukCard(GradientCard):
         self.combo_kategori = QComboBox()
         self.combo_kategori.setView(QListView())
         self.combo_kategori.setFixedSize(400, 46)
-        self.combo_kategori.addItems(["Atasan", "Bawahan", "Pakaian Dalam"])
+        self.combo_kategori.addItems(self._categories)
 
         arrow_lbl = QLabel(self.combo_kategori)
         arrow_lbl.setPixmap(
@@ -453,7 +458,9 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
 
-    dialog = OverlayDialog()
+    dialog = EditProdukDialog(
+        categories=["Atasan", "Bawahan", "Pakaian Dalam"]
+    )
     dialog.exec()
 
     sys.exit(app.exec())
