@@ -54,7 +54,7 @@ class GradientCard(QWidget):
 
 
 # ── Overlay Dialog (layer hitam fullscreen) ────────────────────────────────────
-class TambahProdukOverlay(QDialog):
+class TambahProdukDialog(QDialog):
     """
     Layer paling belakang: fullscreen, hitam semi-transparan.
     Card TambahProduk di-stack di atasnya sebagai child widget.
@@ -342,6 +342,7 @@ class TambahProdukCard(GradientCard):
                 background-color: rgba(156, 213, 255, 0.4);
             }
         """)
+        # Catatan: koneksi .clicked dilakukan di TambahProdukDialog
 
         card.setStyleSheet("""
             background: transparent;
@@ -568,7 +569,7 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
 
-    dialog = TambahProdukOverlay(
+    dialog = TambahProdukDialog(
         kode_produk="PRD-001",
         categories=["Atasan", "Bawahan", "Pakaian Dalam"]
     )

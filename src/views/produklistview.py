@@ -727,7 +727,16 @@ class ProdukWindow(GradientBackground):
 
     def _on_edit_produk(self, produk):
         try:
-            dialog = EditProdukDialog(produk=produk, parent=self)
+            # Ambil daftar kategori dari database
+            kategori_service = KategoriService()
+            daftar_kategori = kategori_service.getDaftarKategori()
+            categories = [k.nama_kategori for k in daftar_kategori]
+
+            dialog = EditProdukDialog(
+                produk=produk,
+                categories=categories,
+                parent=self
+            )
             dialog.exec()
             self.load_produk()
         except Exception as e:
