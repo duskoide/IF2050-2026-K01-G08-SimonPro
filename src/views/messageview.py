@@ -1,16 +1,14 @@
-import sys
 import os
+import sys
 
 os.environ['QT_API'] = 'pyqt6'
 
-from PyQt6.QtWidgets import (
-    QApplication, QWidget, QHBoxLayout,
-    QLabel, QGraphicsDropShadowEffect
-)
-
-from PyQt6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, QPoint
-from PyQt6.QtGui import QPainter, QPainterPath, QColor, QBrush, QFont
 import qtawesome as qta
+from PyQt6.QtCore import QEasingCurve, QPoint, QPropertyAnimation, Qt, QTimer
+from PyQt6.QtGui import QBrush, QColor, QFont, QPainter, QPainterPath
+from PyQt6.QtWidgets import (QApplication, QGraphicsDropShadowEffect,
+                             QGraphicsOpacityEffect, QHBoxLayout, QLabel,
+                             QWidget)
 
 
 # Success Popup Widget 
@@ -24,11 +22,7 @@ class SuccessPopup(QWidget):
         super().__init__(parent)
 
         # Window flags 
-        self.setWindowFlags(
-            Qt.WindowType.FramelessWindowHint |
-            Qt.WindowType.Tool |
-            Qt.WindowType.WindowStaysOnTopHint
-        )
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
 
@@ -39,8 +33,8 @@ class SuccessPopup(QWidget):
         self.icon_color = "#2D6A55"
 
         self._init_ui()
-        # self._init_shadow()
-        # self._init_animation()
+        self._init_timer()
+        self._init_animation()
 
     # Build UI 
     def _init_ui(self):
@@ -109,15 +103,18 @@ class SuccessPopup(QWidget):
     #     self.setGraphicsEffect(shadow)
 
     # ── Fade Animation ──────────────────────────────────────────────────────
-    # def _init_animation(self):
-    #     self._anim = QPropertyAnimation(self, b"windowOpacity")
-    #     self._anim.setDuration(300)
-    #     self._anim.setEasingCurve(QEasingCurve.Type.InOutQuad)
+    def _init_animation(self):
+        self._opacity_effect = QGraphicsOpacityEffect(self)
+        self._opacity_effect.setOpacity(1.0)
+        self.setGraphicsEffect(self._opacity_effect)
+        self._anim = QPropertyAnimation(self._opacity_effect, b"opacity")
+        self._anim.setDuration(300)
+        self._anim.setEasingCurve(QEasingCurve.Type.InOutQuad)
 
-    #     # Auto-hide timer
-    #     self._timer = QTimer(self)
-    #     self._timer.setSingleShot(True)
-    #     self._timer.timeout.connect(self._fade_out)
+    def _init_timer(self):
+        self._timer = QTimer(self)
+        self._timer.setSingleShot(True)
+        self._timer.timeout.connect(self._fade_out)
 
     # Rounded Background 
     def paintEvent(self, event):
@@ -143,7 +140,8 @@ class SuccessPopup(QWidget):
         message: str = "produk berhasil disimpan", 
         bg_color: str = "#99F9D7",
         text_color: str = "#2D6A55",
-        icon_color: str = "#2D6A55"
+        icon_color: str = "#2D6A55",
+        duration_ms: int = 2000
 
     ):
 
@@ -155,41 +153,42 @@ class SuccessPopup(QWidget):
         self._refresh_styles()
         
         self.update()
-        self._reposition()
+        self._opacity_effect.setOpacity(0.0)
         self.show()
         self.raise_()
 
-    #     # Fade in
-    #     self._anim.stop()
-    #     self.setWindowOpacity(0.0)
-    #     self.show()
-    #     self._anim.setStartValue(0.0)
-    #     self._anim.setEndValue(1.0)
-    #     self._anim.start()
+        QTimer.singleShot(0, self._reposition)
 
-    #     # Jadwalkan fade-out
-    #     self._timer.stop()
-    #     self._timer.start(duration_ms)
+        self._anim.stop()
+        self._anim.setStartValue(self._opacity_effect.opacity())
+        self._anim.setEndValue(1.0)
+        self._anim.start()
 
-    # def _fade_out(self):
-    #     self._anim.stop()
-    #     self._anim.setStartValue(1.0)
-    #     self._anim.setEndValue(0.0)
-    #     self._anim.finished.connect(self.hide)
-    #     self._anim.start()
+        if duration_ms and duration_ms > 0:
+            self._timer.stop()
+            self._timer.start(duration_ms)
+
+    def _fade_out(self):
+        self._anim.stop()
+        self._anim.setStartValue(self._opacity_effect.opacity())
+        self._anim.setEndValue(0.0)
+        self._anim.finished.connect(self.hide)
+        self._anim.start()
 
     # Positioning 
     def _reposition(self):
-        if self.parent():
-            parent_rect = self.parent().geometry()
-            x = parent_rect.x() + (parent_rect.width()  - self.WIDTH)  // 2 
-            y = parent_rect.y() +  parent_rect.height() - self.HEIGHT - 30
+        margin = 20
+        parent_widget = self.parent() if self.parent() else None
+        if parent_widget:
+            x = parent_widget.width() - self.WIDTH - margin
+            y = parent_widget.height() - self.HEIGHT - margin
             self.move(x, y)
-        else:
-            screen = QApplication.primaryScreen().availableGeometry()
-            x = (screen.width()  - self.WIDTH)  // 2 + 480
-            y =  screen.height() - self.HEIGHT  - 20
-            self.move(x, y)
+            return
+
+        screen = QApplication.primaryScreen().availableGeometry()
+        x = screen.width() - self.WIDTH - margin
+        y = screen.height() - self.HEIGHT - margin
+        self.move(x, y)
 
 
 # ── Entry Point (demo) ─────────────────────────────────────────────────────────
