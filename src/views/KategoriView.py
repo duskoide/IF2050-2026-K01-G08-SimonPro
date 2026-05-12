@@ -50,7 +50,7 @@ class EditKategoriDialog(GradientDialog):
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 
-        self.setFixedSize(760, 380)
+        self.setFixedSize(690, 380)
 
         self._drag_pos = None
         self.is_add_mode = False
@@ -58,7 +58,7 @@ class EditKategoriDialog(GradientDialog):
 
     def init_ui(self):
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(28, 20, 28, 20)
+        main_layout.setContentsMargins(28, 10, 36, 10)
 
         # path icon (lebih aman)
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
@@ -67,20 +67,20 @@ class EditKategoriDialog(GradientDialog):
         card.setStyleSheet("background: transparent; border-radius: 28px;")
 
         layout = QVBoxLayout(card)
-        layout.setContentsMargins(70, 28, 70, 30)
+        layout.setContentsMargins(38, 18, 38, 28)
         layout.setSpacing(8)
 
         self.btn_close = QPushButton(self)
         self.btn_close.setFixedSize(40, 40)
         self.btn_close.setIconSize(QSize(28, 28))
-        self.btn_close.move(690, 18)
+        self.btn_close.move(620, 18)
         self.btn_close.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_close.setIcon(qta.icon("fa5s.times", color="#355872"))
         self.btn_close.setStyleSheet("""
             QPushButton {
                 background: transparent;
                 border: none;
-                border-radius: 20px;
+                border-radius: 16px;
             }
             QPushButton:hover {
                 background-color: rgba(156, 213, 255, 0.25);
@@ -97,7 +97,7 @@ class EditKategoriDialog(GradientDialog):
         title.setStyleSheet("""
             QLabel {
                 color: #355872;
-                font-size: 24px;
+                font-size: 36px;
                 font-weight: 700;
                 letter-spacing: 0.5px;
                 border: none;
@@ -119,7 +119,7 @@ class EditKategoriDialog(GradientDialog):
             return lbl
 
         layout.addWidget(create_label("Nama Kategori"))
-        layout.addSpacing(1)
+        layout.addSpacing(0)
 
         self.combo_kategori = QComboBox()
         self.combo_kategori.setView(QListView())
@@ -142,7 +142,7 @@ class EditKategoriDialog(GradientDialog):
                 padding-right: 40px;
                 font-size: 16px;
                 color: #355872;
-                background: transparent;
+                background: #FFFFFF;
             }}
 
             QComboBox:hover {{
@@ -221,7 +221,7 @@ class EditKategoriDialog(GradientDialog):
         self.combo_kategori.currentIndexChanged.connect(self._on_kategori_changed)
 
         layout.addWidget(create_label("Nama Kategori Baru"))
-        layout.addSpacing(4)
+        layout.addSpacing(0)
 
         self.input_baru = QLineEdit()
         self.input_baru.setFixedHeight(46)
@@ -233,7 +233,7 @@ class EditKategoriDialog(GradientDialog):
                 border-radius: 15px;
                 padding: 0 12px;
                 font-size: 16px;
-                background: transparent;
+                background: #FFFFFF;
                 color: #355872;
             }
         """)
