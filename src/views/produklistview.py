@@ -25,6 +25,7 @@ from PyQt6.QtWidgets import (
 
 from src.controllers.KategoriController import KategoriController
 from src.views.KategoriView import EditKategoriDialog
+from src.views.TambahProduk import TambahProdukDialog
 from src.views.EditProduk import EditProdukDialog
 from src.database.db_connection import get_db
 from src.services.ProdukService import ProdukService
@@ -655,6 +656,7 @@ class ProdukWindow(GradientBackground):
         sticky_lay.setSpacing(16)
         self.toolbar = Toolbar()
         self.toolbar.edit_kategori_clicked.connect(self._on_edit_kategori)
+        self.toolbar.tambah_produk_clicked.connect(self._on_tambah_produk)
         self.toolbar.search_changed.connect(self._on_search_changed)
         sticky_lay.addWidget(self.toolbar)
         self.filter_bar = FilterBar()
@@ -693,6 +695,36 @@ class ProdukWindow(GradientBackground):
         dialog.hapusClicked.connect(controller.submit_hapus_kategori)
 
         controller.request_edit_kategori()
+
+    def _on_tambah_produk(self):
+        kode_produk = "Akan tergenerate otomatis"
+        kategori_list = []
+        try:
+            kode_produk = self._produk_service.get_next_kode_produk()
+        except Exception as e:
+            print(f"[ProdukWindow] Gagal generate kode produk: {e}")
+        try:
+            kategori_list = self._produk_service.get_daftar_kategori()
+        except Exception as e:
+            print(f"[ProdukWindow] Gagal memuat kategori: {e}")
+
+        dialog = TambahProdukDialog(
+            kode_produk=kode_produk,
+            categories=kategori_list,
+            parent=self,
+        )
+        dialog.btn_simpan.clicked.connect(dialog.accept)
+        if dialog.exec():
+            self.load_produk()
+
+    def _on_edit_produk(self, produk: Produk):
+        if not produk:
+            return
+        dialog = EditProdukDialog(produk=produk, parent=self)
+        dialog.btn_simpan.clicked.connect(dialog.accept)
+        dialog.btn_hapus.clicked.connect(dialog.accept)
+        if dialog.exec():
+            self.load_produk()
 
     def navigate_to(self, label):
         # Saat embedded, delegasikan ke DashboardWindow via parent
