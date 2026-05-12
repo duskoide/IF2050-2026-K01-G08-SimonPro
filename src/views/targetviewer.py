@@ -1,0 +1,628 @@
+import sys
+import os
+
+os.environ['QT_API'] = 'pyqt6'
+
+from PyQt6.QtWidgets import (
+    QApplication, QWidget, QLabel, QPushButton,
+    QVBoxLayout, QHBoxLayout, QFrame,
+    QScrollArea, QGraphicsDropShadowEffect, QLineEdit,
+    QComboBox, QHeaderView, QTableWidget, QTableWidgetItem,
+    QDateEdit
+)
+from PyQt6.QtGui import (
+    QPainter, QLinearGradient, QColor,
+    QBrush, QPixmap,
+    QIntValidator
+)
+from PyQt6.QtCore import Qt, QSize, QPointF, QDate
+import qtawesome as qta
+
+# Background linear gradient
+class GradientBackground(QWidget):
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        gradient = QLinearGradient(0, 0, 0, self.height())
+        gradient.setColorAt(0.0, QColor("#F7F8F0"))
+        gradient.setColorAt(1.0, QColor("#B8E4FF"))
+        painter.fillRect(self.rect(), QBrush(gradient))
+
+#Card
+class Card(QFrame):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setStyleSheet("""
+            QFrame {
+                background-color: #FFFFFF;
+                border-radius: 15px;
+                border: 1px solid #35587226;
+            }
+        """)
+        shadow = QGraphicsDropShadowEffect(self)
+        shadow.setBlurRadius(25)
+        shadow.setOffset(0, 10)
+        shadow.setColor(QColor(0, 0, 0, 10))
+        self.setGraphicsEffect(shadow)
+
+#Sidebar
+class Sidebar(QFrame):
+    MENU = [
+        ("ph.chart-line-up", "Dashboard", False),
+        ("mdi.package-variant-closed", "Produk", False),
+        ("fa5s.bullseye", "Target", True),
+        ("mdi.clipboard-text-outline", "Input Produksi", False),
+        ("mdi.chart-bar", "Pencapaian", False),
+        ("ph.warning", "Defect", False),
+        ("mdi.file-document-outline", "Laporan", False),
+    ]
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedWidth(230)
+        self.setStyleSheet(f"QFrame {{ background:{"#355872"}; border:none; }}")
+
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(18, 10, 18, 10)
+        lay.setSpacing(3)
+
+        # Logo
+        logo_f = QFrame()
+        logo_f.setFixedHeight(80)
+        logo_f.setStyleSheet("background:transparent; border:none;")
+        logo_lay = QHBoxLayout(logo_f)
+        logo_lay.setContentsMargins(18, 0, 18, 0)
+        logo_lay.setSpacing(10)
+        logo_ico = QLabel()
+        pixmap = QPixmap("img/Logo Simonpro Putih.png")
+        if not pixmap.isNull():
+             logo_ico.setPixmap(pixmap.scaled(40, 40, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+        logo_ico.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        logo_ico.setMinimumHeight(50)
+        logo_txt = QLabel("SiMonPro")
+        logo_txt.setStyleSheet(f"color:{"#F7F8F0"}; font-size:24px; font-weight:700; border:none; background:transparent;")
+        logo_lay.addWidget(logo_ico)
+        logo_lay.addWidget(logo_txt)
+        logo_lay.addStretch()
+        lay.addWidget(logo_f)
+
+        sep = QFrame()
+        sep.setFixedHeight(1)
+        sep.setStyleSheet("background:rgba(156,213,255,0); border:none;")
+        lay.addWidget(sep)
+        lay.addSpacing(8)
+
+        for icon_name, label, active in self.MENU:
+            lay.addWidget(self._menu_btn(icon_name, label, active))
+            lay.addSpacing(6)
+        lay.addStretch()
+        lay.addWidget(self._menu_btn("mdi.logout", "Keluar", False))
+        lay.addSpacing(16)
+
+    def _menu_btn(self, icon_name, label, active):
+        btn = QFrame()
+        btn.setFixedHeight(44)
+        btn.setCursor(Qt.CursorShape.PointingHandCursor)
+
+        if active:
+            btn.setStyleSheet(f"""
+                QFrame {{
+                    background: {"#9CD5FF"};
+                    border-radius: 10px;
+                    border: none;
+                }}
+            """)
+            ico_color  = "#355872"
+            txt_color  = "#355872"
+            txt_weight = "700"
+        else:
+            btn.setStyleSheet("""
+                QFrame {
+                    background: transparent;
+                    border: none;
+                }
+                QFrame:hover {
+                    background: rgba(156,213,255,0.12);
+                    border-radius: 10px;
+                }
+            """)
+            ico_color  = "#F7F8F0"
+            txt_color  = "#F7F8F0"
+            txt_weight = "600"
+        row = QHBoxLayout(btn)
+        row.setContentsMargins(16, 0, 16, 0)
+        row.setSpacing(12)
+
+        ico = QLabel()
+        ico.setPixmap(qta.icon(icon_name, color=ico_color).pixmap(24, 24))
+        ico.setFixedSize(30, 30)
+        ico.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        ico.setStyleSheet("border:none; background:transparent;")
+
+        lbl = QLabel(label)
+        lbl.setStyleSheet(f"color:{txt_color}; font-size:18px; font-weight:{txt_weight}; border:none; background:transparent;")
+
+        row.addWidget(ico)
+        row.addWidget(lbl)
+        row.addStretch()
+
+        return btn
+   
+#Topbar
+class Topbar(QFrame):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedHeight(70)
+        self.setStyleSheet("background:transparent; border:none;")
+
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(28, 25, 28, 0)
+
+        title = QLabel("Pengaturan Target")
+        title.setStyleSheet(f"color:{"#355872"}; font-size:36px; font-weight:700; border:none; background:transparent;")
+        lay.addWidget(title)
+        lay.addStretch()
+
+        #User info
+        user_ico = QLabel()
+        user_ico.setPixmap(qta.icon("fa5s.user-circle", color="#355872").pixmap(50, 50))
+        user_ico.setStyleSheet("border:none; background:transparent;")
+
+        name_lbl = QLabel("Yumna Fathonah")
+        name_lbl.setStyleSheet(f"color:{"#355872"}; font-size:18px; font-weight:700; border:none; background:transparent;")
+        role_lbl = QLabel("Admin")
+        role_lbl.setStyleSheet(f"color:{"#355872"}; font-size:14px; font-weight:400; border:none; background:transparent;")
+
+        info_col = QFrame()
+        info_col.setStyleSheet("background:transparent; border:none;")
+        info_lay = QVBoxLayout(info_col)
+        info_lay.setContentsMargins(0, 0, 0, 0)
+        info_lay.setSpacing(0)
+        info_lay.addWidget(name_lbl)
+        info_lay.addWidget(role_lbl)
+
+        lay.addWidget(user_ico)
+        lay.addSpacing(3)
+        lay.addWidget(info_col)
+
+#Shared field label
+def make_label(text):
+    lbl = QLabel(text)
+    lbl.setStyleSheet(
+        "color: #355872; font-size: 16px; font-weight: 500; "
+        "border: none; background: transparent;"
+    )
+    return lbl
+
+#Shared input style
+INPUT_STYLE = """
+    QLineEdit {
+        border: 1px solid #355872;
+        border-radius: 10px;
+        padding: 8px 12px;
+        font-size: 16px;
+        background: white;
+        color: #355872;
+    }
+    QLineEdit:focus {
+        border: 2px solid #9CD5FF;
+    }
+"""
+
+ERROR_STYLE = """
+    QLineEdit {
+        border: 2px solid #FF4D4D;
+        border-radius: 10px;
+        padding: 8px 12px;
+        font-size: 16px;
+        background: white;
+        color: #355872;
+    }
+"""
+
+COMBO_STYLE = """
+    QComboBox {
+        border: 1px solid #355872;
+        border-radius: 10px;
+        padding: 0 12px;
+        padding-right: 40px;
+        font-size: 14px;
+        color: #355872;
+        background: white;
+    }
+    QComboBox::drop-down {
+        border: none;
+        width: 30px;
+    }
+    QComboBox QAbstractItemView {
+        border: 1px solid #355872;
+        border-radius: 1px;
+        background: #FFFFFF;
+        padding: 5px;
+        outline: 0px;
+        font-size: 14px;
+        color: #355872;
+    }
+    QComboBox QAbstractItemView::item {
+        min-height: 30px;
+        padding-left: 10px;
+        border-radius: 6px;
+        font-size: 14px;
+        color: #355872;
+    }
+    QComboBox QAbstractItemView::item:hover {
+        background-color: #7FC8FF;
+    }
+    QComboBox QAbstractItemView::item:selected {
+        background-color: #9CD5FF;
+        color: #355872;
+    }
+"""
+
+DATE_STYLE = """
+    QDateEdit {
+        border: 1px solid #355872;
+        border-radius: 10px;
+        padding: 0 12px;
+        font-size: 16px;
+        background: white;
+        color: #355872;
+    }
+    QDateEdit::drop-down {
+        border: none;
+        width: 30px;
+    }
+    QDateEdit::down-arrow {
+        image: none;
+    }
+"""
+
+#Form Card Target Baru
+class FormCard(Card):
+    def __init__(self, parent=None, table_card=None):
+        super().__init__(parent)
+        self.table_card = table_card
+
+        self.product_category_map = {
+            'Kaos Polos': 'Atasan',
+            'Hoodie': 'Atasan',
+            'Dress Floral': 'Dress',
+            'Rok Plisket': 'Bawahan'
+        }
+
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(24, 20, 24, 20)
+        lay.setSpacing(14)
+
+        # Title
+        title = QLabel("Tambah Target Baru")
+        title.setStyleSheet(
+            "color: #355872; font-size: 20px; font-weight: 700; "
+            "border: none; background: transparent;"
+        )
+        lay.addWidget(title)
+
+        # Row 1: Pilih Produk | Kategori Produk
+        row1 = QHBoxLayout()
+        row1.setSpacing(18)
+        col_produk = QVBoxLayout()
+        col_produk.setSpacing(4)
+        col_produk.addWidget(make_label("Pilih Produk"))
+        self.combo_produk = QComboBox()
+        self.combo_produk.setFixedHeight(40)
+        self.combo_produk.setStyleSheet(COMBO_STYLE)
+        self.combo_produk.addItems([""] + list(self.product_category_map.keys()))
+        self.combo_produk.setEditable(True)
+        self.combo_produk.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+        self.combo_produk.completer().setFilterMode(Qt.MatchFlag.MatchContains)
+        arrow_combo = QLabel(self.combo_produk)
+        arrow_combo.setPixmap(qta.icon("fa5s.angle-down", color="#355872").pixmap(24, 24))
+        arrow_combo.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        arrow_combo.setStyleSheet("border: none; background: transparent;")
+        arrow_combo.setFixedSize(25, 25)
+        self.combo_produk.resizeEvent = lambda e, c=self.combo_produk, a=arrow_combo: (
+            a.move(c.width() - 28, (c.height() - 20) // 2)
+        )
+        col_produk.addWidget(self.combo_produk)
+
+        col_kat = QVBoxLayout()
+        col_kat.setSpacing(4)
+        col_kat.addWidget(make_label("Kategori Produk"))
+        self.inp_kat = QLineEdit()
+        self.inp_kat.setFixedHeight(40)
+        self.inp_kat.setReadOnly(True)
+        self.inp_kat.setPlaceholderText("")
+        self.inp_kat.setStyleSheet(INPUT_STYLE)
+        col_kat.addWidget(self.inp_kat)
+
+        row1.addLayout(col_produk, stretch=1)
+        row1.addLayout(col_kat, stretch=1)
+        lay.addLayout(row1)
+
+        # Row 2: Target Bulanan | Target Harian
+        row2 = QHBoxLayout()
+        row2.setSpacing(20)
+
+        col_bul = QVBoxLayout()
+        col_bul.setSpacing(4)
+        col_bul.addWidget(make_label("Target Bulanan"))
+        self.inp_bul = QLineEdit()
+        self.inp_bul.setFixedHeight(40)
+        self.inp_bul.setPlaceholderText("0")
+        self.inp_bul.setStyleSheet(INPUT_STYLE)
+        self.inp_bul.setValidator(QIntValidator(0, 9_999_999))
+        col_bul.addWidget(self.inp_bul)
+       
+        self.err_bul = QLabel("")
+        self.err_bul.setStyleSheet("color: #FF4D4D; font-size: 12px; font-weight: 500; border: none;")
+        col_bul.addWidget(self.err_bul)
+
+        col_har = QVBoxLayout()
+        col_har.setSpacing(4)
+        col_har.addWidget(make_label("Target Harian"))
+        self.inp_har = QLineEdit()
+        self.inp_har.setFixedHeight(40)
+        self.inp_har.setPlaceholderText("0")
+        self.inp_har.setStyleSheet(INPUT_STYLE)
+        self.inp_har.setValidator(QIntValidator(0, 9_999_999))
+        col_har.addWidget(self.inp_har)
+
+        self.err_har = QLabel("")
+        self.err_har.setStyleSheet("color: #FF4D4D; font-size: 12px; font-weight: 500; border: none;")
+        col_har.addWidget(self.err_har)
+
+        row2.addLayout(col_bul, stretch=1)
+        row2.addLayout(col_har, stretch=1)
+        lay.addLayout(row2)
+
+        # Row 3: Periode (half width)
+        row3 = QHBoxLayout()
+        row3.setSpacing(20)
+
+        col_per = QVBoxLayout()
+        col_per.setSpacing(4)
+        col_per.addWidget(make_label("Periode (Bulan/Tahun)"))
+
+        self.inp_date = QDateEdit()
+        self.inp_date.setFixedHeight(40)
+        self.inp_date.setDisplayFormat("MM/yyyy")
+        self.inp_date.setDate(QDate.currentDate())
+        self.inp_date.setCalendarPopup(True)
+        self.inp_date.setStyleSheet(DATE_STYLE)
+
+        cal_icon = QLabel(self.inp_date)
+        cal_icon.setPixmap(qta.icon("mdi.calendar-month-outline", color="#355872").pixmap(28, 28))
+        cal_icon.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        cal_icon.setStyleSheet("""
+            border: none;
+            background: transparent;
+        """)
+        cal_icon.setFixedSize(25, 25)
+        self.inp_date.resizeEvent = lambda e, d=self.inp_date, i=cal_icon: (
+            i.move(d.width() - 40, (d.height() - 20) // 2))
+       
+        col_per.addWidget(self.inp_date)
+
+        row3.addLayout(col_per, stretch=1)
+        col_empty = QVBoxLayout()
+        row3.addLayout(col_empty, stretch=1)
+        lay.addLayout(row3)
+
+        # Simpan button
+        self.btn_save = QPushButton()
+        self.btn_save.setText(" Simpan Target")
+        self.btn_save.setIcon(qta.icon("mdi.content-save-outline", color="#355872"))
+        self.btn_save.setIconSize(QSize(24, 24))
+        self.btn_save.setFixedHeight(38)
+        self.btn_save.setFixedWidth(160)
+        self.btn_save.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_save.setStyleSheet("""
+            QPushButton {
+                background-color: #9CD5FF;
+                color: #355872;
+                font-size: 16px;
+                font-weight: 600;
+                border: none;
+                border-radius: 12px;
+                padding: 0 14px;
+            }
+            QPushButton:hover { background-color: #E3F3FF; }  
+        """)
+        shadow = QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(14)
+        shadow.setOffset(0, 4)
+        shadow.setColor(QColor(53, 88, 114, 60))
+        self.btn_save.setGraphicsEffect(shadow)
+        lay.addWidget(self.btn_save)
+
+        # Signals
+        self.combo_produk.currentTextChanged.connect(self.update_category)
+        self.btn_save.clicked.connect(self.save_target)
+
+    def update_category(self, text):
+        category = self.product_category_map.get(text, "")
+        self.inp_kat.setText(category)
+
+    def save_target(self):
+        # Reset errors
+        self.inp_bul.setStyleSheet(INPUT_STYLE)
+        self.inp_har.setStyleSheet(INPUT_STYLE)
+        self.err_bul.setText("")
+        self.err_har.setText("")
+        valid = True
+        bul_val = self.inp_bul.text().strip()
+        if not bul_val or int(bul_val) <= 0:
+            self.inp_bul.setStyleSheet(ERROR_STYLE)
+            self.err_bul.setText("Target bulanan harus lebih dari 0")
+            valid = False
+
+        har_val = self.inp_har.text().strip()
+        if not har_val or int(har_val) <= 0:
+            self.inp_har.setStyleSheet(ERROR_STYLE)
+            self.err_har.setText("Target harian harus lebih dari 0")
+            valid = False
+
+        if valid:
+            # Placeholder logic to add to table
+            if self.table_card:
+                produk = self.combo_produk.currentText()
+                kategori = self.inp_kat.text()
+                periode = self.inp_date.date().toString("MMMM yyyy")
+                self.table_card.add_target(
+                    produk, kategori, periode, f"{int(bul_val):,}", f"{int(har_val):,}"
+                )
+           
+            # Reset form
+            self.combo_produk.setCurrentIndex(0)
+            self.inp_bul.clear()
+            self.inp_har.clear()
+
+#Table Card (Target Saat ini)
+TARGET_DATA = [
+    ("Kaos Polos",   "Atasan",   "April 2026", "3.500", "175"),
+    ("Hoodie",       "Atasan",   "April 2026", "2.800", "140"),
+    ("Dress Floral", "Dress",    "April 2026", "3.200", "160"),
+    ("Rok Plisket",  "Bawahan",  "April 2026", "2.800", "140"),
+]
+
+HEADERS = ["Produk", "Kategori", "Periode", "Target Bulanan", "Target Harian"]
+
+class TableCard(Card):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setMinimumHeight(320)
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(24, 20, 24, 20)
+        lay.setSpacing(14)
+        title = QLabel("Target Saat Ini")
+        title.setStyleSheet(
+            "color: #355872; font-size: 20px; font-weight: 700; "
+            "border: none; background: transparent;"
+        )
+        lay.addWidget(title)
+       
+        self.table = QTableWidget(0, len(HEADERS))
+        self.table.setHorizontalHeaderLabels(HEADERS)
+        self.table.verticalHeader().setVisible(False)
+        self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.table.setAlternatingRowColors(False)
+        self.table.setShowGrid(False)
+        self.table.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.table.setStyleSheet("""
+            QTableWidget {
+                background: transparent;
+                border: none;
+                color: #355872;
+                font-size: 14px;
+            }
+            QTableWidget::item {
+                padding: 10px 8px;
+                border-bottom: 1px solid #EAF2FA;
+                color: #355872;
+            }
+            QTableWidget::item:selected {
+                background-color: #EAF6FF;
+                color: #355872;
+            }
+            QHeaderView::section {
+                background: transparent;
+                color: #355872;
+                font-size: 16px;
+                font-weight: 700;
+                border: none;
+                border-bottom: 2px solid #C8E4F5;
+                padding: 8px;
+            }
+            QScrollBar:vertical {
+                background: transparent;
+                width: 6px;
+                border-radius: 3px;
+            }
+            QScrollBar::handle:vertical {
+                background: #C8E4F5;
+                border-radius: 3px;
+            }
+        """)
+
+        # Load initial data
+        for data in TARGET_DATA:
+            self.add_target(*data)
+
+        lay.addWidget(self.table)
+
+    def add_target(self, produk, kat, periode, bul, har):
+        row = self.table.rowCount()
+        self.table.insertRow(row)
+        items = [produk, kat, periode, bul, har]
+        for c, val in enumerate(items):
+            item = QTableWidgetItem(str(val))
+            item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            if c == 2:
+                item.setForeground(QColor("#7AAACE"))
+            self.table.setItem(row, c, item)
+        self.table.setRowHeight(row, 44)
+
+# Main Window
+class TargetWindow(GradientBackground):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("SiMonPro - Pengaturan Target")
+        self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self._drag_pos = None
+        self.init_ui()
+
+    def init_ui(self):
+        root = QHBoxLayout(self)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(0)
+        root.addWidget(Sidebar())
+        content = QWidget()
+        content.setStyleSheet("background: transparent;")
+        c_lay = QVBoxLayout(content)
+        c_lay.setContentsMargins(0, 0, 0, 0)
+        c_lay.setSpacing(0)
+        c_lay.addWidget(Topbar())
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        inner = QWidget()
+        inner.setStyleSheet("background: transparent;")
+        inner_lay = QVBoxLayout(inner)
+        inner_lay.setContentsMargins(28, 16, 28, 28)
+        inner_lay.setSpacing(18)
+        self.table_card = TableCard()
+        self.form_card = FormCard(table_card=self.table_card)
+        inner_lay.addWidget(self.form_card)
+        inner_lay.addWidget(self.table_card)
+        inner_lay.addStretch()
+        scroll.setWidget(inner)
+        c_lay.addWidget(scroll)
+        root.addWidget(content)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+            event.accept()
+
+    def mouseMoveEvent(self, event):
+        if event.buttons() == Qt.MouseButton.LeftButton and self._drag_pos:
+            self.move(event.globalPosition().toPoint() - self._drag_pos)
+            event.accept()
+
+    def mouseReleaseEvent(self, event):
+        self._drag_pos = None
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Escape:
+            self.close()
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    app.setStyle("Fusion")
+    window = TargetWindow()
+    window.showMaximized()
+    sys.exit(app.exec())
