@@ -4,21 +4,14 @@ import sys
 os.environ["QT_API"] = "pyqt6"
 
 import qtawesome as qta
-from PyQt6.QtCore import Qt, pyqtSignal, QSize
-from PyQt6.QtGui import QBrush, QColor, QPainter, QPainterPath, QPixmap, QRadialGradient
-from PyQt6.QtWidgets import (
-    QApplication,
-    QComboBox,
-    QDialog,
-    QFrame,
-    QHBoxLayout,
-    QLabel,
-    QLineEdit,
-    QListView,
-    QPushButton,
-    QVBoxLayout,
-    QWidget,
-)
+from PyQt6.QtCore import QSize, Qt, pyqtSignal
+from PyQt6.QtGui import (QBrush, QColor, QPainter, QPainterPath, QPixmap,
+                         QRadialGradient)
+from PyQt6.QtWidgets import (QApplication, QComboBox, QDialog, QFrame,
+                             QHBoxLayout, QLabel, QLineEdit, QListView,
+                             QPushButton, QVBoxLayout, QWidget)
+
+from src.views.messageview import SuccessPopup
 
 
 class GradientDialog(QDialog):
@@ -400,11 +393,12 @@ class EditKategoriDialog(GradientDialog):
 
     # Display success message in green, then close dialog
     def tampilkan_success(self, msg: str):
-        self.message_label.setStyleSheet(
-            "color: #27AE60; font-size: 14px; font-weight: 600; "
-            "border: none; background: transparent;"
-        )
-        self.message_label.setText(msg)
+        popup_parent = self.parent().window() if self.parent() else None
+        if not hasattr(self, "_success_popup") or self._success_popup is None:
+            self._success_popup = SuccessPopup(parent=popup_parent)
+        else:
+            self._success_popup.setParent(popup_parent)
+        self._success_popup.show_message(msg)
         self.accept()
 
 
