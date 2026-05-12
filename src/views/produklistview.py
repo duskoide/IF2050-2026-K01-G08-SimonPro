@@ -23,14 +23,11 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from src.views.KategoriView import EditKategoriDialog
 from src.controllers.KategoriController import KategoriController
 from src.views.KategoriView import EditKategoriDialog
-from src.views.TambahProduk import TambahProdukDialog
 from src.views.EditProduk import EditProdukDialog
 from src.database.db_connection import get_db
 from src.services.ProdukService import ProdukService
-from src.services.KategoriService import KategoriService
 from src.models.Produk import Produk
 from src.utils.image_utils import load_product_pixmap
 
@@ -658,7 +655,6 @@ class ProdukWindow(GradientBackground):
         sticky_lay.setSpacing(16)
         self.toolbar = Toolbar()
         self.toolbar.edit_kategori_clicked.connect(self._on_edit_kategori)
-        self.toolbar.tambah_produk_clicked.connect(self._on_tambah_produk)
         self.toolbar.search_changed.connect(self._on_search_changed)
         sticky_lay.addWidget(self.toolbar)
         self.filter_bar = FilterBar()
