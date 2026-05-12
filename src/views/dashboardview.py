@@ -4,7 +4,7 @@ import sys
 os.environ["QT_API"] = "pyqt6"
 
 import qtawesome as qta
-from PyQt6.QtCore import QPointF, QRectF, QSize, Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import QPointF, QRectF, QSize, Qt, pyqtSignal
 from PyQt6.QtGui import (
     QBrush,
     QColor,
@@ -726,11 +726,19 @@ class DashboardWindow(GradientBackground):
             on_logout=self.on_logout,
             embedded=True,
         )
+        # Page 5 — Pencapaian
+        self.pencapaian_page = PencapaianWindow(
+            user=self.user,
+            session=self.session,
+            on_logout=self.on_logout,
+            embedded=True,
+        )
         self.pages.addWidget(dashboard_page)
         self.pages.addWidget(self.produk_page)
         self.pages.addWidget(self.target_page)
         self.pages.addWidget(self.defect_page)
         self.pages.addWidget(self.input_page)
+        self.pages.addWidget(self.pencapaian_page)
 
         root.addWidget(self.pages)
 
@@ -746,6 +754,9 @@ class DashboardWindow(GradientBackground):
             return
         if label == "Input Produksi":
             self.pages.setCurrentIndex(4)
+            return
+        if label == "Pencapaian":
+            self.pages.setCurrentIndex(5)
             return
 
         self.pages.setCurrentIndex(0)
@@ -783,29 +794,16 @@ class DashboardWindow(GradientBackground):
             print(f"[Dashboard] Gagal memuat data: {e}")
 
     def _handle_menu_clicked(self, label):
-        if label == "Pencapaian":
-            self._open_pencapaian()
-        elif label in (
+        if label in (
             "Dashboard",
             "Produk",
             "Target",
+            "Pencapaian",
             "Defect",
             "Input Produksi",
             "Laporan",
         ):
             self.navigate_to(label)
-
-    def _open_pencapaian(self):
-        self.pencapaian_window = PencapaianWindow(
-            user=self.user,
-            session=self.session,
-            on_logout=self._handle_child_logout,
-            on_back=self._navigate_from_child,
-        )
-        self.pencapaian_window.showMaximized()
-        self.pencapaian_window.raise_()
-        self.pencapaian_window.activateWindow()
-        QTimer.singleShot(0, self.hide)
 
     def _navigate_from_child(self, label):
         if self.pencapaian_window:

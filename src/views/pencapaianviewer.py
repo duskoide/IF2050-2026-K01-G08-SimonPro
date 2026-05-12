@@ -739,17 +739,27 @@ class LineChartCard(Card):
 
 # Main Window
 class PencapaianWindow(GradientBackground):
-    def __init__(self, user=None, session=None, on_logout=None, controller=None, on_back=None):
+    def __init__(
+        self,
+        user=None,
+        session=None,
+        on_logout=None,
+        controller=None,
+        on_back=None,
+        embedded=False,
+    ):
         super().__init__()
         self.user = user
         self.session = session
         self.on_logout = on_logout
         self.on_back = on_back
+        self.embedded = embedded
         self.controller = controller or PencapaianController(PencapaianService(), viewer=self)
         self.controller.set_viewer(self)
-        self.setWindowTitle("SiMonPro - Pencapaian Produksi")
-        self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        if not embedded:
+            self.setWindowTitle("SiMonPro - Pencapaian Produksi")
+            self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
+            self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self._drag_pos = None
         self.init_ui()
         self.load_data()
@@ -759,12 +769,13 @@ class PencapaianWindow(GradientBackground):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        self.sidebar = Sidebar()
-        self.sidebar.menu_clicked.connect(self._handle_menu_clicked)
-        self.sidebar.menu_changed.connect(self.sidebar.set_active)
-        if self.on_logout:
-            self.sidebar.logout_clicked.connect(self.on_logout)
-        root.addWidget(self.sidebar)
+        if not self.embedded:
+            self.sidebar = Sidebar()
+            self.sidebar.menu_clicked.connect(self._handle_menu_clicked)
+            self.sidebar.menu_changed.connect(self.sidebar.set_active)
+            if self.on_logout:
+                self.sidebar.logout_clicked.connect(self.on_logout)
+            root.addWidget(self.sidebar)
 
         content = QWidget()
         content.setStyleSheet("background: transparent;")
@@ -861,7 +872,7 @@ class PencapaianWindow(GradientBackground):
         self._drag_pos = None
 
     def keyPressEvent(self, event):
-        if event.key() == Qt.Key.Key_Escape:
+        if not self.embedded and event.key() == Qt.Key.Key_Escape:
             self.close()
 
 if __name__ == "__main__":
