@@ -4,7 +4,7 @@ import sys
 os.environ["QT_API"] = "pyqt6"
 
 import qtawesome as qta
-from PyQt6.QtCore import QPointF, QRectF, QSize, Qt, pyqtSignal
+from PyQt6.QtCore import QPointF, QRectF, QSize, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import (
     QBrush,
     QColor,
@@ -803,7 +803,9 @@ class DashboardWindow(GradientBackground):
             on_back=self._navigate_from_child,
         )
         self.pencapaian_window.showMaximized()
-        self.hide()
+        self.pencapaian_window.raise_()
+        self.pencapaian_window.activateWindow()
+        QTimer.singleShot(0, self.hide)
 
     def _navigate_from_child(self, label):
         if self.pencapaian_window:
@@ -812,6 +814,9 @@ class DashboardWindow(GradientBackground):
         if self.defect_window:
             self.defect_window.close()
             self.defect_window = None
+        self.showMaximized()
+        self.raise_()
+        self.activateWindow()
         self.navigate_to(label)
 
     def _show_dashboard(self):

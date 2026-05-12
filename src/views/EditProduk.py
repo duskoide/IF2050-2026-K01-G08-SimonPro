@@ -54,18 +54,34 @@ class GradientCard(QWidget):
         painter.fillRect(self.rect(), QBrush(gradient))
 
 
+class GradientDialog(QDialog):
+    RADIUS = 20
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        path = QPainterPath()
+        path.addRoundedRect(0, 0, self.width(), self.height(), self.RADIUS, self.RADIUS)
+        painter.setClipPath(path)
+
+        gradient = QRadialGradient(self.width() / 2, self.height() / 2, self.width())
+        gradient.setColorAt(0.0, QColor("#F7F8F0"))
+        gradient.setColorAt(0.5, QColor("#DCEEF4"))
+        gradient.setColorAt(1.0, QColor("#9CD5FF"))
+        painter.fillRect(self.rect(), QBrush(gradient))
+
+
 # ── Overlay Dialog (layer hitam fullscreen) ────────────────────────────────────
 class OverlayDialog(QDialog):
     OVERLAY_COLOR = (0, 0, 0, 160)
     
-class EditProdukDialog(QDialog):
+class EditProdukDialog(GradientDialog):
     """
     Card EditProduk di-stack di atasnya sebagai child widget.
     """
 
     # Ubah nilai alpha (0–255) untuk mengatur opacity overlay
-    OVERLAY_COLOR = (0, 0, 0, 160)   # rgba
-                       
     def __init__(self, produk=None, categories: list[str] = None, parent=None):
         super().__init__(parent)
 
@@ -75,8 +91,10 @@ class EditProdukDialog(QDialog):
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 
-        screen = QApplication.primaryScreen().availableGeometry()
-        self.setGeometry(screen)
+        self.setFixedSize(706, 650)
+
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(28, 10, 28, 10)
         
         # ── Buat card dan taruh di tengah ────────────────────────────────
         self.card = EditProdukCard(
@@ -85,23 +103,11 @@ class EditProdukDialog(QDialog):
             parent=self
         )
         self.card.setFixedSize(650, 610)
-
-        shadow = QGraphicsDropShadowEffect(self.card)
-        shadow.setBlurRadius(28)
-        shadow.setOffset(0, 8)
-        shadow.setColor(QColor(0, 0, 0, 50))
-        self.card.setGraphicsEffect(shadow)
-
-        card_x = (screen.width()  - self.card.width())  // 2
-        card_y = (screen.height() - self.card.height()) // 2
-        self.card.move(card_x, card_y)
+        main_layout.addWidget(self.card)
 
         self.card.btn_close.clicked.connect(self.close)
 
-    def paintEvent(self, event):
-        painter = QPainter(self)
-        r, g, b, a = self.OVERLAY_COLOR
-        painter.fillRect(self.rect(), QColor(r, g, b, a))
+    # paintEvent inherited from GradientDialog
 
 
 # ── Card Edit Produk (QWidget, bukan QDialog) ──────────────────────────────────
