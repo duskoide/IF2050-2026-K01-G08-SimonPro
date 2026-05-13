@@ -13,7 +13,7 @@ from PyQt6.QtGui import (
     QPainter, QLinearGradient, QColor, QBrush, QPixmap,
     QFont
 )
-from PyQt6.QtCore import Qt, QSize, QDate, QEvent
+from PyQt6.QtCore import Qt, QSize, QDate, QEvent, pyqtSignal
 import qtawesome as qta
 
 #Background
@@ -155,8 +155,9 @@ class Sidebar(QFrame):
 
 #Topbar
 class Topbar(QFrame):
-    def __init__(self, parent=None):
+    def __init__(self, user=None, parent=None):
         super().__init__(parent)
+        self.user = user
         self.setFixedHeight(70)
         self.setStyleSheet("background:transparent; border:none;")
 
@@ -164,7 +165,7 @@ class Topbar(QFrame):
         lay.setContentsMargins(28, 25, 28, 0)
 
         title = QLabel("Laporan")
-        title.setStyleSheet(f"color:{"#355872"}; font-size:36px; font-weight:700; border:none; background:transparent;")
+        title.setStyleSheet("color:#355872; font-size:36px; font-weight:700; border:none; background:transparent;")
         lay.addWidget(title)
         lay.addStretch()
 
@@ -173,10 +174,12 @@ class Topbar(QFrame):
         user_ico.setPixmap(qta.icon("fa5s.user-circle", color="#355872").pixmap(50, 50))
         user_ico.setStyleSheet("border:none; background:transparent;")
 
-        name_lbl = QLabel("Yumna Fathonah")
-        name_lbl.setStyleSheet(f"color:{"#355872"}; font-size:18px; font-weight:700; border:none; background:transparent;")
-        role_lbl = QLabel("Admin")
-        role_lbl.setStyleSheet(f"color:{"#355872"}; font-size:14px; font-weight:400; border:none; background:transparent;")
+        name = user.username if user else "Admin"
+        role = user.role if user else "Admin"
+        name_lbl = QLabel(name)
+        name_lbl.setStyleSheet("color:#355872; font-size:18px; font-weight:700; border:none; background:transparent;")
+        role_lbl = QLabel(role)
+        role_lbl.setStyleSheet("color:#355872; font-size:14px; font-weight:400; border:none; background:transparent;")
 
         info_col = QFrame()
         info_col.setStyleSheet("background:transparent; border:none;")
@@ -486,11 +489,17 @@ class LaporanCard(Card):
 
 # Main Window
 class LaporanWindow(GradientBackground):
-    def __init__(self):
+    def __init__(self, user=None, session=None, on_logout=None, on_back=None, embedded=False):
         super().__init__()
-        self.setWindowTitle("SiMonPro - Laporan")
-        self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.user = user
+        self.session = session
+        self.on_logout = on_logout
+        self.on_back = on_back
+        self.embedded = embedded
+        if not embedded:
+            self.setWindowTitle("SiMonPro - Laporan")
+            self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
+            self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self._drag_pos = None
         self.init_ui()
  
@@ -499,14 +508,20 @@ class LaporanWindow(GradientBackground):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
  
-        root.addWidget(Sidebar())
+        if not self.embedded:
+            self.sidebar = Sidebar()
+            self.sidebar.menu_clicked.connect(self._handle_menu_clicked)
+            self.sidebar.menu_changed.connect(self.sidebar.set_active)
+            if self.on_logout:
+                self.sidebar.logout_clicked.connect(self.on_logout)
+            root.addWidget(self.sidebar)
  
         content = QWidget()
         content.setStyleSheet("background: transparent;")
         c_lay = QVBoxLayout(content)
         c_lay.setContentsMargins(0, 0, 0, 0)
         c_lay.setSpacing(0)
-        c_lay.addWidget(Topbar())
+        c_lay.addWidget(Topbar(user=self.user))
  
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -525,6 +540,12 @@ class LaporanWindow(GradientBackground):
         scroll.setWidget(inner)
         c_lay.addWidget(scroll)
         root.addWidget(content)
+
+    def _handle_menu_clicked(self, label):
+        if label == "Laporan":
+            return
+        if self.on_back:
+            self.on_back(label)
  
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
@@ -542,7 +563,7 @@ class LaporanWindow(GradientBackground):
         self._drag_pos = None
  
     def keyPressEvent(self, event):
-        if event.key() == Qt.Key.Key_Escape:
+        if not self.embedded and event.key() == Qt.Key.Key_Escape:
             self.close()
  
  
