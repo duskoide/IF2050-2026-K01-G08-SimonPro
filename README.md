@@ -21,7 +21,7 @@ Pastikan perangkat telah memiliki:
 
 ### Langkah Instalasi
 
-#### ⚡ Quick Setup (Recommended)
+#### Quick Setup (Recommended)
 
 Untuk instalasi otomatis (Python, Docker, dependensi menggunakan **uv**, dan shortcut desktop), jalankan skrip berikut:
 
@@ -61,12 +61,11 @@ Untuk instalasi otomatis (Python, Docker, dependensi menggunakan **uv**, dan sho
    uv sync
    ```
 
-   *(Opsional: Jika tidak menggunakan uv, gunakan `pip install -r requirements.txt`)*
+   _(Opsional: Jika tidak menggunakan uv, gunakan `pip install -r requirements.txt`)_
 
 4. **Konfigurasi koneksi basis data (opsional)**
 
    Secara default, aplikasi terhubung ke basis data dengan konfigurasi berikut:
-
    - Host: `localhost`
    - Port: `5433`
    - Database: `simonpro`
@@ -109,12 +108,11 @@ Setelah seluruh prasyarat terpenuhi dan instalasi selesai, ikuti langkah-langkah
    uv run python main.py
    ```
 
-   *(Atau `python main.py` jika virtual environment sudah aktif)*
+   _(Atau `python main.py` jika virtual environment sudah aktif)_
 
 3. **Login ke aplikasi**
 
    Setelah aplikasi terbuka, gunakan salah satu akun dummy berikut untuk masuk:
-
    - Username: `owner` - Password: `owner123` (peran: Owner)
    - Username: `admin` - Password: `admin123` (peran: Admin)
 
@@ -128,37 +126,37 @@ Setelah seluruh prasyarat terpenuhi dan instalasi selesai, ikuti langkah-langkah
 
 ### Autentikasi dan Manajemen Sesi
 
-| Nama Modul | Deskripsi |
-|------------|-----------|
-| Login | Halaman autentikasi pengguna dengan validasi username dan password, dilengkapi dengan manajemen sesi yang tersimpan di basis data. |
+| Nama Modul | Deskripsi                                                                                                                          |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Login      | Halaman autentikasi pengguna dengan validasi username dan password, dilengkapi dengan manajemen sesi yang tersimpan di basis data. |
 
 ### Dashboard dan Monitoring
 
-| Nama Modul | Deskripsi |
-|------------|-----------|
-| Dashboard | Halaman utama yang menampilkan ringkasan performa produksi, termasuk total produksi, persentase pencapaian target, tingkat defect, dan jumlah produk aktif. |
+| Nama Modul | Deskripsi                                                                                                                                                   |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Dashboard  | Halaman utama yang menampilkan ringkasan performa produksi, termasuk total produksi, persentase pencapaian target, tingkat defect, dan jumlah produk aktif. |
 
 ### Manajemen Data Master
 
-| Nama Modul | Deskripsi |
-|------------|-----------|
-| Produk | Modul untuk mengelola data produk, termasuk nama produk, deskripsi, satuan, gambar, status aktif, dan kategori. |
-| Kategori Produk | Modul klasifikasi produk ke dalam kategori tertentu, seperti Atasan, Bawahan, dan Pakaian Dalam. |
+| Nama Modul      | Deskripsi                                                                                                       |
+| --------------- | --------------------------------------------------------------------------------------------------------------- |
+| Produk          | Modul untuk mengelola data produk, termasuk nama produk, deskripsi, satuan, gambar, status aktif, dan kategori. |
+| Kategori Produk | Modul klasifikasi produk ke dalam kategori tertentu, seperti Atasan, Bawahan, dan Pakaian Dalam.                |
 
 ### Operasional Produksi
 
-| Nama Modul | Deskripsi |
-|------------|-----------|
+| Nama Modul      | Deskripsi                                                                                                                  |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | Target Produksi | Modul untuk menetapkan target jumlah produksi per produk dalam periode tertentu (harian, mingguan, bulanan, atau tahunan). |
-| Input Produksi | Modul pencatatan hasil produksi harian, termasuk jumlah aktual, jumlah defect, penanggung jawab, dan kendala produksi. |
-| Defect | Modul pencatatan dan klasifikasi kecacatan produk berdasarkan tipe defect yang telah ditentukan. |
+| Input Produksi  | Modul pencatatan hasil produksi harian, termasuk jumlah aktual, jumlah defect, penanggung jawab, dan kendala produksi.     |
+| Defect          | Modul pencatatan dan klasifikasi kecacatan produk berdasarkan tipe defect yang telah ditentukan.                           |
 
 ### Pelaporan
 
-| Nama Modul | Deskripsi |
-|------------|-----------|
+| Nama Modul | Deskripsi                                                                                 |
+| ---------- | ----------------------------------------------------------------------------------------- |
 | Pencapaian | Modul evaluasi pencapaian target produksi dibandingkan dengan hasil aktual yang tercatat. |
-| Laporan | Modul generasi laporan produksi dalam bentuk dokumen. |
+| Laporan    | Modul generasi laporan produksi dalam bentuk dokumen.                                     |
 
 ---
 
@@ -168,93 +166,93 @@ Setelah seluruh prasyarat terpenuhi dan instalasi selesai, ikuti langkah-langkah
 
 Tabel untuk menyimpan data pengguna aplikasi.
 
-| Kolom | Tipe Data | Keterangan |
-|-------|-----------|------------|
-| user_id | SERIAL | Primary Key |
-| username | VARCHAR(100) | Nama pengguna (unik, wajib diisi) |
-| password | VARCHAR(255) | Kata sandi pengguna (wajib diisi) |
-| role | user_role | Peran pengguna: `owner` atau `admin` |
+| Kolom    | Tipe Data    | Keterangan                           |
+| -------- | ------------ | ------------------------------------ |
+| user_id  | SERIAL       | Primary Key                          |
+| username | VARCHAR(100) | Nama pengguna (unik, wajib diisi)    |
+| password | VARCHAR(255) | Kata sandi pengguna (wajib diisi)    |
+| role     | user_role    | Peran pengguna: `owner` atau `admin` |
 
 ### 2. kategori_produk
 
 Tabel untuk menyimpan kategori produk.
 
-| Kolom | Tipe Data | Keterangan |
-|-------|-----------|------------|
-| kategori_id | SERIAL | Primary Key |
+| Kolom         | Tipe Data    | Keterangan                               |
+| ------------- | ------------ | ---------------------------------------- |
+| kategori_id   | SERIAL       | Primary Key                              |
 | nama_kategori | VARCHAR(100) | Nama kategori produk (unik, wajib diisi) |
 
 ### 3. produk
 
 Tabel untuk menyimpan data produk yang diproduksi.
 
-| Kolom | Tipe Data | Keterangan |
-|-------|-----------|------------|
-| produk_id | SERIAL | Primary Key |
-| nama_produk | VARCHAR(255) | Nama produk (wajib diisi) |
-| deskripsi_produk | TEXT | Deskripsi produk |
-| satuan | VARCHAR(50) | Satuan produk |
-| gambar | TEXT | Path atau URL gambar produk |
-| status_aktif | BOOLEAN | Status aktif produk (default: TRUE) |
-| nama_kategori | VARCHAR(100) | Foreign Key ke `kategori_produk(nama_kategori)` |
+| Kolom            | Tipe Data    | Keterangan                                      |
+| ---------------- | ------------ | ----------------------------------------------- |
+| produk_id        | SERIAL       | Primary Key                                     |
+| nama_produk      | VARCHAR(255) | Nama produk (wajib diisi)                       |
+| deskripsi_produk | TEXT         | Deskripsi produk                                |
+| satuan           | VARCHAR(50)  | Satuan produk                                   |
+| gambar           | TEXT         | Path atau URL gambar produk                     |
+| status_aktif     | BOOLEAN      | Status aktif produk (default: TRUE)             |
+| nama_kategori    | VARCHAR(100) | Foreign Key ke `kategori_produk(nama_kategori)` |
 
 ### 4. target_produksi
 
 Tabel untuk menyimpan target produksi per periode.
 
-| Kolom | Tipe Data | Keterangan |
-|-------|-----------|------------|
-| target_id | SERIAL | Primary Key |
-| produk_id | INT | Foreign Key ke `produk(produk_id)` |
-| periode | periode_type | Jenis periode: `harian`, `mingguan`, `bulanan`, atau `tahunan` |
-| tanggal_mulai | DATE | Tanggal mulai periode target (wajib diisi) |
-| tanggal_selesai | DATE | Tanggal akhir periode target (wajib diisi) |
-| jumlah_target | INT | Jumlah target produksi (wajib diisi, minimal 0) |
+| Kolom           | Tipe Data    | Keterangan                                                     |
+| --------------- | ------------ | -------------------------------------------------------------- |
+| target_id       | SERIAL       | Primary Key                                                    |
+| produk_id       | INT          | Foreign Key ke `produk(produk_id)`                             |
+| periode         | periode_type | Jenis periode: `harian`, `mingguan`, `bulanan`, atau `tahunan` |
+| tanggal_mulai   | DATE         | Tanggal mulai periode target (wajib diisi)                     |
+| tanggal_selesai | DATE         | Tanggal akhir periode target (wajib diisi)                     |
+| jumlah_target   | INT          | Jumlah target produksi (wajib diisi, minimal 0)                |
 
 ### 5. produksi_harian
 
 Tabel untuk mencatat hasil produksi harian.
 
-| Kolom | Tipe Data | Keterangan |
-|-------|-----------|------------|
-| produksi_id | SERIAL | Primary Key |
-| tanggal | DATE | Tanggal produksi (wajib diisi) |
-| produk_id | INT | Foreign Key ke `produk(produk_id)` |
-| jumlah_aktual | INT | Jumlah produksi aktual (wajib diisi, minimal 0) |
-| jumlah_defect | INT | Jumlah produk cacat (wajib diisi, minimal 0) |
-| penanggung_jawab | VARCHAR(255) | Nama penanggung jawab produksi (wajib diisi) |
-| kendala_produksi | TEXT | Catatan kendala yang dihadapi saat produksi |
+| Kolom            | Tipe Data    | Keterangan                                      |
+| ---------------- | ------------ | ----------------------------------------------- |
+| produksi_id      | SERIAL       | Primary Key                                     |
+| tanggal          | DATE         | Tanggal produksi (wajib diisi)                  |
+| produk_id        | INT          | Foreign Key ke `produk(produk_id)`              |
+| jumlah_aktual    | INT          | Jumlah produksi aktual (wajib diisi, minimal 0) |
+| jumlah_defect    | INT          | Jumlah produk cacat (wajib diisi, minimal 0)    |
+| penanggung_jawab | VARCHAR(255) | Nama penanggung jawab produksi (wajib diisi)    |
+| kendala_produksi | TEXT         | Catatan kendala yang dihadapi saat produksi     |
 
 ### 6. tipe_defect
 
 Tabel untuk menyimpan klasifikasi jenis kecacatan produk.
 
-| Kolom | Tipe Data | Keterangan |
-|-------|-----------|------------|
-| defect_id | SERIAL | Primary Key |
+| Kolom       | Tipe Data    | Keterangan                            |
+| ----------- | ------------ | ------------------------------------- |
+| defect_id   | SERIAL       | Primary Key                           |
 | nama_defect | VARCHAR(100) | Nama jenis defect (unik, wajib diisi) |
 
 ### 7. detail_defect
 
 Tabel untuk menyimpan rincian kecacatan pada setiap catatan produksi harian.
 
-| Kolom | Tipe Data | Keterangan |
-|-------|-----------|------------|
-| detail_id | SERIAL | Primary Key |
-| produksi_id | INT | Foreign Key ke `produksi_harian(produksi_id)` dengan `ON DELETE CASCADE` |
-| defect_id | INT | Foreign Key ke `tipe_defect(defect_id)` |
-| jumlah_defect | INT | Jumlah produk dengan jenis defect tertentu (wajib diisi, minimal 0) |
+| Kolom         | Tipe Data | Keterangan                                                               |
+| ------------- | --------- | ------------------------------------------------------------------------ |
+| detail_id     | SERIAL    | Primary Key                                                              |
+| produksi_id   | INT       | Foreign Key ke `produksi_harian(produksi_id)` dengan `ON DELETE CASCADE` |
+| defect_id     | INT       | Foreign Key ke `tipe_defect(defect_id)`                                  |
+| jumlah_defect | INT       | Jumlah produk dengan jenis defect tertentu (wajib diisi, minimal 0)      |
 
 ### 8. sessions
 
 Tabel untuk menyimpan data sesi login pengguna.
 
-| Kolom | Tipe Data | Keterangan |
-|-------|-----------|------------|
-| session_id | VARCHAR(255) | Primary Key |
-| user_id | INT | Foreign Key ke `users(user_id)` |
-| login_time | TIMESTAMP | Waktu login (default: waktu saat ini) |
-| is_active | BOOLEAN | Status sesi aktif (default: TRUE) |
+| Kolom      | Tipe Data    | Keterangan                            |
+| ---------- | ------------ | ------------------------------------- |
+| session_id | VARCHAR(255) | Primary Key                           |
+| user_id    | INT          | Foreign Key ke `users(user_id)`       |
+| login_time | TIMESTAMP    | Waktu login (default: waktu saat ini) |
+| is_active  | BOOLEAN      | Status sesi aktif (default: TRUE)     |
 
 ---
 
@@ -266,11 +264,12 @@ Tabel untuk menyimpan data sesi login pengguna.
 
 ---
 
-## 🌟 Fitur Bonus yang Diimplementasikan
+## Fitur Bonus yang Diimplementasikan
 
 Aplikasi ini telah mengimplementasikan seluruh poin bonus yang diminta dalam spesifikasi:
 
 ### 1. Unit Testing (Bonus)
+
 - **Framework**: `pytest`
 - **Cakupan**: Mencakup seluruh layer Service dan Controller.
 - **Lokasi**: Folder `tests/`
@@ -281,6 +280,7 @@ Aplikasi ini telah mengimplementasikan seluruh poin bonus yang diminta dalam spe
 - **Catatan**: Seluruh logika bisnis pada `LaporanService`, `ProdukService`, dan `AuthService` telah diuji secara menyeluruh.
 
 ### 2. Performance Optimization (Bonus)
+
 - **Tool**: `cProfile`
 - **Fitur yang Dioptimasi**: Dashboard Monitoring dan Generasi Laporan.
 - **Hasil**: Laporan performa tersedia di `doc/performance_report.txt`.
@@ -291,10 +291,10 @@ Aplikasi ini telah mengimplementasikan seluruh poin bonus yang diminta dalam spe
   ```
 
 ### 3. CI/CD (Bonus)
+
 - **Tool**: GitHub Actions
 - **Workflow**: `.github/workflows/ci.yml`
 - **Otomatisasi**:
   - **Linting**: Pengecekan kualitas kode otomatis dengan `Ruff`.
   - **Testing**: Menjalankan seluruh test suite pada setiap Pull Request dan Push ke branch utama.
   - **Delivery**: Otomatis membuat paket rilis (`.zip`) dan checksum (`.sha256`) setiap kali ada tag versi baru (`v*`).
-
