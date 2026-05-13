@@ -15,8 +15,12 @@ from PyQt6.QtGui import (
     QBrush, QPixmap,
     QIntValidator
 )
-from PyQt6.QtCore import Qt, QSize, QPointF, QDate, pyqtSignal
+from PyQt6.QtCore import Qt, QSize, QDate, pyqtSignal
 import qtawesome as qta
+
+from src.database.db_connection import get_db
+from src.services.TargetService import TargetService
+from src.services.ProdukService import ProdukService
 
 # Background linear gradient
 class GradientBackground(QWidget):
@@ -347,22 +351,16 @@ DATE_STYLE = """
 
 #Form Card Target Baru
 class FormCard(Card):
-    def __init__(self, parent=None, table_card=None):
-        super().__init__(parent)
-        self.table_card = table_card
+    save_clicked = pyqtSignal(int, str, str, int, int, int, int)
 
-        self.product_category_map = {
-            'Kaos Polos': 'Atasan',
-            'Hoodie': 'Atasan',
-            'Dress Floral': 'Dress',
-            'Rok Plisket': 'Bawahan'
-        }
+    def __init__(self, parent=None, products=None):
+        super().__init__(parent)
+        self._products = products or []
 
         lay = QVBoxLayout(self)
         lay.setContentsMargins(24, 20, 24, 20)
         lay.setSpacing(14)
 
-        # Title
         title = QLabel("Tambah Target Baru")
         title.setStyleSheet(
             "color: #355872; font-size: 20px; font-weight: 700; "
@@ -370,7 +368,6 @@ class FormCard(Card):
         )
         lay.addWidget(title)
 
-        # Row 1: Pilih Produk | Kategori Produk
         row1 = QHBoxLayout()
         row1.setSpacing(18)
         col_produk = QVBoxLayout()
@@ -379,7 +376,7 @@ class FormCard(Card):
         self.combo_produk = QComboBox()
         self.combo_produk.setFixedHeight(40)
         self.combo_produk.setStyleSheet(COMBO_STYLE)
-        self.combo_produk.addItems([""] + list(self.product_category_map.keys()))
+        self._refresh_combo()
         self.combo_produk.setEditable(True)
         self.combo_produk.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
         self.combo_produk.completer().setFilterMode(Qt.MatchFlag.MatchContains)
@@ -407,7 +404,6 @@ class FormCard(Card):
         row1.addLayout(col_kat, stretch=1)
         lay.addLayout(row1)
 
-        # Row 2: Target Bulanan | Target Harian
         row2 = QHBoxLayout()
         row2.setSpacing(20)
 
@@ -443,7 +439,6 @@ class FormCard(Card):
         row2.addLayout(col_har, stretch=1)
         lay.addLayout(row2)
 
-        # Row 3: Periode (half width)
         row3 = QHBoxLayout()
         row3.setSpacing(20)
 
@@ -476,7 +471,6 @@ class FormCard(Card):
         row3.addLayout(col_empty, stretch=1)
         lay.addLayout(row3)
 
-        # Simpan button
         self.btn_save = QPushButton()
         self.btn_save.setText(" Simpan Target")
         self.btn_save.setIcon(qta.icon("mdi.content-save-outline", color="#355872"))
@@ -503,21 +497,46 @@ class FormCard(Card):
         self.btn_save.setGraphicsEffect(shadow)
         lay.addWidget(self.btn_save)
 
-        # Signals
-        self.combo_produk.currentTextChanged.connect(self.update_category)
+        self.combo_produk.currentIndexChanged.connect(self.update_category)
         self.btn_save.clicked.connect(self.save_target)
 
-    def update_category(self, text):
-        category = self.product_category_map.get(text, "")
-        self.inp_kat.setText(category)
+    def _refresh_combo(self):
+        self.combo_produk.blockSignals(True)
+        self.combo_produk.clear()
+        self.combo_produk.addItem("", None)
+        for p in self._products:
+            self.combo_produk.addItem(p["nama_produk"], p["produk_id"])
+        self.combo_produk.blockSignals(False)
+
+    def set_products(self, products):
+        self._products = products
+        self._refresh_combo()
+
+    def update_category(self, index):
+        produk_id = self.combo_produk.currentData()
+        if produk_id is None:
+            self.inp_kat.setText("")
+            return
+        for p in self._products:
+            if p["produk_id"] == produk_id:
+                self.inp_kat.setText(p.get("nama_kategori", ""))
+                return
+        self.inp_kat.setText("")
 
     def save_target(self):
-        # Reset errors
         self.inp_bul.setStyleSheet(INPUT_STYLE)
         self.inp_har.setStyleSheet(INPUT_STYLE)
         self.err_bul.setText("")
         self.err_har.setText("")
+
         valid = True
+        produk_id = self.combo_produk.currentData()
+        nama_produk = self.combo_produk.currentText()
+
+        if not produk_id:
+            self.err_bul.setText("Pilih produk terlebih dahulu")
+            valid = False
+
         bul_val = self.inp_bul.text().strip()
         if not bul_val or int(bul_val) <= 0:
             self.inp_bul.setStyleSheet(ERROR_STYLE)
@@ -531,28 +550,23 @@ class FormCard(Card):
             valid = False
 
         if valid:
-            # Placeholder logic to add to table
-            if self.table_card:
-                produk = self.combo_produk.currentText()
-                kategori = self.inp_kat.text()
-                periode = self.inp_date.date().toString("MMMM yyyy")
-                self.table_card.add_target(
-                    produk, kategori, periode, f"{int(bul_val):,}", f"{int(har_val):,}"
-                )
-           
-            # Reset form
+            d = self.inp_date.date()
+            tahun = d.year()
+            bulan = d.month()
+            self.save_clicked.emit(
+                produk_id,
+                nama_produk,
+                self.inp_kat.text(),
+                int(bul_val),
+                int(har_val),
+                tahun,
+                bulan,
+            )
             self.combo_produk.setCurrentIndex(0)
             self.inp_bul.clear()
             self.inp_har.clear()
 
 #Table Card (Target Saat ini)
-TARGET_DATA = [
-    ("Kaos Polos",   "Atasan",   "April 2026", "3.500", "175"),
-    ("Hoodie",       "Atasan",   "April 2026", "2.800", "140"),
-    ("Dress Floral", "Dress",    "April 2026", "3.200", "160"),
-    ("Rok Plisket",  "Bawahan",  "April 2026", "2.800", "140"),
-]
-
 HEADERS = ["Produk", "Kategori", "Periode", "Target Bulanan", "Target Harian"]
 
 class TableCard(Card):
@@ -614,13 +628,20 @@ class TableCard(Card):
             }
         """)
 
-        # Load initial data
-        for data in TARGET_DATA:
-            self.add_target(*data)
-
         lay.addWidget(self.table)
 
-    def add_target(self, produk, kat, periode, bul, har):
+    def set_targets(self, target_list):
+        self.table.setRowCount(0)
+        for t in target_list:
+            self._add_row(
+                t["produk"],
+                t["kategori"],
+                t["periode"],
+                f"{t['target_bulanan']:,}",
+                f"{t['target_harian']:,}",
+            )
+
+    def _add_row(self, produk, kat, periode, bul, har):
         row = self.table.rowCount()
         self.table.insertRow(row)
         items = [produk, kat, periode, bul, har]
@@ -650,12 +671,47 @@ class TargetWindow(GradientBackground):
         self.on_logout = on_logout
         self.embedded = embedded
         self.on_back = on_back
+
+        db = get_db()
+        self._target_service = TargetService(db)
+        self._produk_service = ProdukService(db)
+
         if not embedded:
             self.setWindowTitle("SiMonPro - Pengaturan Target")
             self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
             self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self._drag_pos = None
         self.init_ui()
+        self._refresh_table()
+
+    def _load_products(self):
+        try:
+            produk_list = self._produk_service.get_daftar_produk()
+            return [
+                {
+                    "produk_id": p.produk_id,
+                    "nama_produk": p.nama_produk,
+                    "nama_kategori": p.nama_kategori,
+                }
+                for p in produk_list
+            ]
+        except Exception as e:
+            print(f"[TargetWindow] Gagal memuat produk: {e}")
+            return []
+
+    def _refresh_table(self):
+        try:
+            target_list = self._target_service.get_all_targets_grouped()
+            self.table_card.set_targets(target_list)
+        except Exception as e:
+            print(f"[TargetWindow] Gagal memuat target: {e}")
+
+    def _on_save_target(self, produk_id, nama_produk, nama_kategori, target_bulanan, target_harian, tahun, bulan):
+        try:
+            self._target_service.save_target(produk_id, target_bulanan, target_harian, tahun, bulan)
+            self._refresh_table()
+        except Exception as e:
+            print(f"[TargetWindow] Gagal menyimpan target: {e}")
 
     def init_ui(self):
         root = QHBoxLayout(self)
@@ -686,7 +742,9 @@ class TargetWindow(GradientBackground):
         inner_lay.setContentsMargins(28, 16, 28, 28)
         inner_lay.setSpacing(18)
         self.table_card = TableCard()
-        self.form_card = FormCard(table_card=self.table_card)
+        produk_list = self._load_products()
+        self.form_card = FormCard(products=produk_list)
+        self.form_card.save_clicked.connect(self._on_save_target)
         inner_lay.addWidget(self.form_card)
         inner_lay.addWidget(self.table_card)
         inner_lay.addStretch()
