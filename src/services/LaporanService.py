@@ -144,7 +144,7 @@ class LaporanService:
             """
             SELECT COALESCE(SUM(jumlah_target), 0) AS total_target
             FROM target_produksi
-            WHERE tanggal_mulai <= %s AND tanggal_selesai >= %s
+            WHERE periode = 'bulanan' AND tanggal_mulai <= %s AND tanggal_selesai >= %s
             """,
             (tanggal_akhir, tanggal_awal),
         )
@@ -200,7 +200,7 @@ class LaporanService:
                 """
                 SELECT COALESCE(SUM(jumlah_target), 0) AS target
                 FROM target_produksi
-                WHERE tanggal_mulai < %s AND tanggal_selesai >= %s
+                WHERE periode = 'bulanan' AND tanggal_mulai < %s AND tanggal_selesai >= %s
                 """,
                 (bulan_akhir, bulan_awal),
             )

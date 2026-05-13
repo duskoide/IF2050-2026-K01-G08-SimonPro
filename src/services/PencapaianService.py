@@ -79,7 +79,7 @@ class PencapaianService:
                 DATE_TRUNC('month', tanggal_mulai)::date AS bulan,
                 COALESCE(SUM(jumlah_target), 0) AS target
             FROM target_produksi
-            WHERE tanggal_mulai >= %s AND tanggal_mulai <= %s
+            WHERE periode = 'bulanan' AND tanggal_mulai >= %s AND tanggal_mulai <= %s
             GROUP BY DATE_TRUNC('month', tanggal_mulai)
             ORDER BY DATE_TRUNC('month', tanggal_mulai)
             """,

@@ -67,7 +67,7 @@ class DashboardService:
             "SELECT COALESCE(SUM(jumlah_aktual), 0) AS total FROM produksi_harian"
         )
         row_target = self.db.execute_query(
-            "SELECT COALESCE(SUM(jumlah_target), 0) AS total FROM target_produksi"
+            "SELECT COALESCE(SUM(jumlah_target), 0) AS total FROM target_produksi WHERE periode = 'bulanan'"
         )
         total_aktual = int(row_aktual[0]["total"]) if row_aktual else 0
         total_target = int(row_target[0]["total"]) if row_target else 0
@@ -97,7 +97,7 @@ class DashboardService:
                 TO_CHAR(DATE_TRUNC('month', tanggal_mulai), 'Mon') AS bulan,
                 COALESCE(SUM(jumlah_target), 0) AS target
             FROM target_produksi
-            WHERE tanggal_mulai >= %s AND tanggal_mulai <= %s
+            WHERE periode = 'bulanan' AND tanggal_mulai >= %s AND tanggal_mulai <= %s
             GROUP BY DATE_TRUNC('month', tanggal_mulai)
             ORDER BY DATE_TRUNC('month', tanggal_mulai)
         """
@@ -164,7 +164,7 @@ class DashboardService:
                 TO_CHAR(DATE_TRUNC('month', tanggal_mulai), 'Mon') AS bulan,
                 COALESCE(SUM(jumlah_target), 0) AS target
             FROM target_produksi
-            WHERE tanggal_mulai >= %s AND tanggal_mulai <= %s
+            WHERE periode = 'bulanan' AND tanggal_mulai >= %s AND tanggal_mulai <= %s
             GROUP BY DATE_TRUNC('month', tanggal_mulai)
             ORDER BY DATE_TRUNC('month', tanggal_mulai)
         """

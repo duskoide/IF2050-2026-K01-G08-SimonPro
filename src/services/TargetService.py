@@ -50,6 +50,11 @@ class TargetService:
         hari_terakhir = monthrange(tahun, bulan)[1]
         tanggal_selesai = date(tahun, bulan, hari_terakhir)
 
+        if target_harian <= 0 < target_bulanan:
+            target_harian = target_bulanan // hari_terakhir
+        elif target_bulanan <= 0 < target_harian:
+            target_bulanan = target_harian * hari_terakhir
+
         TargetProduksi.upsert(
             self._db, produk_id, "bulanan", tanggal_mulai, tanggal_selesai, target_bulanan
         )

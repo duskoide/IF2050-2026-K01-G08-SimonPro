@@ -17,6 +17,8 @@ from PyQt6.QtGui import (
 from PyQt6.QtCore import Qt, QSize, QDate, pyqtSignal
 import qtawesome as qta
 
+from calendar import monthrange
+
 from src.database.db_connection import get_db
 from src.services.TargetService import TargetService
 from src.services.ProdukService import ProdukService
@@ -402,6 +404,11 @@ class FormCard(Card):
         )
         col_produk.addWidget(self.combo_produk)
 
+        self.err_produk = QLabel("")
+        self.err_produk.setVisible(False)
+        self.err_produk.setStyleSheet("color: #FF4D4D; font-size: 12px; font-weight: 500; border: none; background: transparent;")
+        col_produk.addWidget(self.err_produk)
+
         col_kat = QVBoxLayout()
         col_kat.setSpacing(4)
         col_kat.addWidget(make_label("Kategori Produk"))
@@ -415,6 +422,9 @@ class FormCard(Card):
         row1.addLayout(col_produk, stretch=1)
         row1.addLayout(col_kat, stretch=1)
         lay.addLayout(row1)
+
+        self.err_produk.setVisible(False)
+        lay.addWidget(self.err_produk)
 
         row2 = QHBoxLayout()
         row2.setSpacing(20)
@@ -519,6 +529,9 @@ class FormCard(Card):
         lay.addWidget(self.btn_save)
 
         self.combo_produk.currentIndexChanged.connect(self.update_category)
+        self.inp_bul.textChanged.connect(self._auto_calculate_harian)
+        self.combo_bulan.currentIndexChanged.connect(self._auto_calculate_harian)
+        self.combo_tahun.currentIndexChanged.connect(self._auto_calculate_harian)
         self.btn_save.clicked.connect(self.save_target)
 
     def _refresh_combo(self):
@@ -544,9 +557,29 @@ class FormCard(Card):
                 return
         self.inp_kat.setText("")
 
+    def _auto_calculate_harian(self):
+        bul_text = self.inp_bul.text().strip()
+        if bul_text and bul_text.isdigit() and int(bul_text) > 0:
+            bulan_map = {
+                "Januari": 1, "Februari": 2, "Maret": 3, "April": 4,
+                "Mei": 5, "Juni": 6, "Juli": 7, "Agustus": 8,
+                "September": 9, "Oktober": 10, "November": 11, "Desember": 12
+            }
+            bulan_str = self.combo_bulan.currentText().strip()
+            tahun_str = self.combo_tahun.currentText().strip()
+            if bulan_str and tahun_str and bulan_str in bulan_map:
+                tahun = int(tahun_str)
+                bulan = bulan_map[bulan_str]
+                days = monthrange(tahun, bulan)[1]
+                harian = int(bul_text) // days
+                self.inp_har.setText(str(harian))
+
     def save_target(self):
+        self.combo_produk.setStyleSheet(COMBO_STYLE)
         self.inp_bul.setStyleSheet(INPUT_STYLE)
         self.inp_har.setStyleSheet(INPUT_STYLE)
+        self.err_produk.setVisible(False)
+        self.err_produk.setText("")
         self.err_bul.setText("")
         self.err_har.setText("")
 
@@ -555,34 +588,33 @@ class FormCard(Card):
         nama_produk = self.combo_produk.currentText()
 
         if not produk_id:
-            self.err_bul.setText("Pilih produk terlebih dahulu")
+            self.err_produk.setText("Pilih produk terlebih dahulu")
+            self.err_produk.setVisible(True)
+            self.combo_produk.setStyleSheet(COMBO_STYLE.replace("1px solid #355872", "2px solid #FF4D4D"))
             valid = False
 
         bul_val = self.inp_bul.text().strip()
-        if not bul_val or int(bul_val) <= 0:
-            self.inp_bul.setStyleSheet(ERROR_STYLE)
-            self.err_bul.setText("Target bulanan harus lebih dari 0")
-            valid = False
-
         har_val = self.inp_har.text().strip()
-        if not har_val or int(har_val) <= 0:
+        bul_ok = bool(bul_val) and int(bul_val) > 0
+        har_ok = bool(har_val) and int(har_val) > 0
+
+        if not bul_ok and not har_ok:
+            self.inp_bul.setStyleSheet(ERROR_STYLE)
+            self.err_bul.setText("Isi target bulanan atau target harian")
             self.inp_har.setStyleSheet(ERROR_STYLE)
-            self.err_har.setText("Target harian harus lebih dari 0")
+            self.err_har.setText("Isi target bulanan atau target harian")
             valid = False
 
         if valid:
-            # Map bulan name to number
             bulan_map = {
                 "Januari": 1, "Februari": 2, "Maret": 3, "April": 4,
                 "Mei": 5, "Juni": 6, "Juli": 7, "Agustus": 8,
                 "September": 9, "Oktober": 10, "November": 11, "Desember": 12
             }
-            
-            # Extract values from dropdowns
+
             bulan_str = self.combo_bulan.currentText().strip()
             tahun_str = self.combo_tahun.currentText().strip()
-            
-            # Validate all fields are selected
+
             if not bulan_str or not tahun_str:
                 self.err_bul.setText("Periode harus diisi lengkap!")
                 valid = False
@@ -590,27 +622,24 @@ class FormCard(Card):
                 try:
                     tahun = int(tahun_str)
                     bulan = bulan_map.get(bulan_str, 0)
-                    
-                    # Validate bulan
                     if bulan == 0:
                         self.err_bul.setText("Bulan tidak valid!")
                         valid = False
                     else:
-                        if valid:
-                            self.save_clicked.emit(
-                                produk_id,
-                                nama_produk,
-                                self.inp_kat.text(),
-                                int(bul_val),
-                                int(har_val),
-                                tahun,
-                                bulan,
-                            )
-                            self.combo_produk.setCurrentIndex(0)
-                            self.inp_bul.clear()
-                            self.inp_har.clear()
-                            self.combo_bulan.setCurrentIndex(0)
-                            self.combo_tahun.setCurrentIndex(0)
+                        self.save_clicked.emit(
+                            produk_id,
+                            nama_produk,
+                            self.inp_kat.text(),
+                            int(bul_val) if bul_val else 0,
+                            int(har_val) if har_val else 0,
+                            tahun,
+                            bulan,
+                        )
+                        self.combo_produk.setCurrentIndex(0)
+                        self.inp_bul.clear()
+                        self.inp_har.clear()
+                        self.combo_bulan.setCurrentIndex(0)
+                        self.combo_tahun.setCurrentIndex(0)
                 except ValueError:
                     self.err_bul.setText("Tahun harus berupa angka!")
                     valid = False
