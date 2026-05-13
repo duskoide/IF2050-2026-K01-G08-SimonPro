@@ -10,14 +10,13 @@ from PyQt6.QtCore import QSize, Qt, pyqtSignal
 from PyQt6.QtGui import QBrush, QColor, QLinearGradient, QPainter, QPixmap
 from PyQt6.QtWidgets import (
     QApplication,
-    QComboBox,
     QFrame,
     QGraphicsDropShadowEffect,
     QGridLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QListView,
+    QMenu,
     QPushButton,
     QScrollArea,
     QSizePolicy,
@@ -491,48 +490,22 @@ class FilterBar(QFrame):
     urutkan_clicked = pyqtSignal()
     kategori_changed = pyqtSignal(int)
 
-    _COMBO_NORMAL_SS = """
-        QComboBox {
-            border: 1.5px solid #355872;
-            border-radius: 15px;
-            padding: 0 12px;
-            padding-right: 40px;
-            font-size: 14px;
-            color: #355872;
-            background: #FFFFFF;
-        }
-        QComboBox:hover {
-            background-color: rgba(156, 213, 255, 0.15);
-        }
-        QComboBox::drop-down {
-            border: none;
-            width: 30px;
-        }
-        QComboBox QAbstractItemView {
+    _MENU_STYLE = """
+        QMenu {
             border: 1px solid #355872;
-            border-radius: 1px;
+            border-radius: 10px;
             background: #F7F8F0;
             padding: 6px;
-            selection-background-color: #9CD5FF;
-            selection-color: #355872;
-            outline: 0px;
-            font-size: 14px;
-            color: #355872;
         }
-        QComboBox QAbstractItemView::item {
-            min-height: 30px;
-            padding-left: 10px;
+        QMenu::item {
+            padding: 8px 20px 8px 10px;
             border-radius: 6px;
             font-size: 14px;
             color: #355872;
         }
-        QComboBox QAbstractItemView::item:hover {
-            background-color: #DCEEF4;
-        }
-        QComboBox QAbstractItemView::item:selected {
+        QMenu::item:selected {
             background-color: #9CD5FF;
             color: #355872;
-            font-weight: 600;
         }
     """
 
@@ -572,35 +545,34 @@ class FilterBar(QFrame):
         self.btn_urutkan = _filter_btn("mdi.sort-ascending", "Urutkan")
         self.btn_urutkan.clicked.connect(self.urutkan_clicked.emit)
         lay.addWidget(self.btn_urutkan)
-        lay.addWidget(_filter_btn("mdi.filter-outline", "Kelompokkan"))
 
-        # Dropdown kategori menggunakan style dari KategoriView
-        self.combo_kategori = QComboBox()
-        self.combo_kategori.setView(QListView())
-        self.combo_kategori.setFixedHeight(38)
-        self.combo_kategori.setFixedWidth(160)
-        self.combo_kategori.setStyleSheet(self._COMBO_NORMAL_SS)
-        self.combo_kategori.currentIndexChanged.connect(self._on_kategori_changed)
-        lay.addWidget(self.combo_kategori)
+        # Tombol Kelompokkan dengan popup menu
+        self.btn_kelompokkan = _filter_btn("mdi.filter-outline", "Kelompokkan")
+        lay.addWidget(self.btn_kelompokkan)
+
+        # Popup menu untuk kategori (dimunculkan saat klik tombol)
+        self.menu_kategori = QMenu(self.btn_kelompokkan)
+        self.menu_kategori.setStyleSheet(self._MENU_STYLE)
+        self.btn_kelompokkan.setMenu(self.menu_kategori)
 
         lay.addStretch()
 
-    def _on_kategori_changed(self, index):
-        if index >= 0:
-            kategori_id = self.combo_kategori.currentData()
-            self.kategori_changed.emit(kategori_id)
+    def _show_kategori_menu(self):
+        """Tampilkan popup menu kategori di bawah tombol."""
+        # Posisikan menu tepat di bawah tombol
+        btn_pos = self.btn_kelompokkan.mapToGlobal(self.btn_kelompokkan.rect().bottomLeft())
+        self.menu_kategori.move(btn_pos)
+        self.menu_kategori.show()
 
     def set_kategori_list(self, kategori_list):
-        """Mengisi dropdown dengan daftar kategori."""
-        self.combo_kategori.blockSignals(True)
-        self.combo_kategori.clear()
+        """Mengisi popup menu dengan daftar kategori."""
+        self.menu_kategori.clear()
         for kid, nama in kategori_list:
-            self.combo_kategori.addItem(nama, kid)
-        self.combo_kategori.blockSignals(False)
+            self.menu_kategori.addAction(nama, lambda checked, k=kid: self._on_kategori_selected(k))
 
-    def get_selected_kategori_id(self):
-        """Mengembalikan ID kategori yang dipilih."""
-        return self.combo_kategori.currentData()
+    def _on_kategori_selected(self, kategori_id):
+        """Dipanggil ketika user memilih kategori dari menu."""
+        self.kategori_changed.emit(kategori_id)
 
 
 class ProductGrid(QWidget):
