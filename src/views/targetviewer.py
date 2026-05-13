@@ -7,16 +7,21 @@ from PyQt6.QtWidgets import (
     QApplication, QWidget, QLabel, QPushButton,
     QVBoxLayout, QHBoxLayout, QFrame,
     QScrollArea, QGraphicsDropShadowEffect, QLineEdit,
-    QComboBox, QHeaderView, QTableWidget, QTableWidgetItem,
-    QDateEdit
+    QComboBox, QHeaderView, QTableWidget, QTableWidgetItem
 )
 from PyQt6.QtGui import (
     QPainter, QLinearGradient, QColor,
     QBrush, QPixmap,
     QIntValidator
 )
-from PyQt6.QtCore import Qt, QSize, QPointF, QDate
+from PyQt6.QtCore import Qt, QSize, QDate, pyqtSignal
 import qtawesome as qta
+
+from calendar import monthrange
+
+from src.database.db_connection import get_db
+from src.services.TargetService import TargetService
+from src.services.ProdukService import ProdukService
 
 # Background linear gradient
 class GradientBackground(QWidget):
@@ -57,10 +62,33 @@ class Sidebar(QFrame):
         ("mdi.file-document-outline", "Laporan", False),
     ]
 
+    ACTIVE_STYLE = """
+        QFrame#menuBtn {
+            background: #9CD5FF;
+            border-radius: 10px;
+            border: none;
+        }
+    """
+    INACTIVE_STYLE = """
+        QFrame#menuBtn {
+            background: transparent;
+            border: none;
+        }
+        QFrame#menuBtn:hover {
+            background: rgba(156,213,255,0.12);
+            border-radius: 10px;
+        }
+    """
+
+    logout_clicked = pyqtSignal()
+    menu_changed = pyqtSignal(str)
+    menu_clicked = pyqtSignal(str)
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setFixedWidth(230)
-        self.setStyleSheet(f"QFrame {{ background:{"#355872"}; border:none; }}")
+        self.setStyleSheet("QFrame { background:#355872; border:none; }")
+        self._menu_btns = {}
 
         lay = QVBoxLayout(self)
         lay.setContentsMargins(18, 10, 18, 10)
@@ -80,7 +108,9 @@ class Sidebar(QFrame):
         logo_ico.setAlignment(Qt.AlignmentFlag.AlignCenter)
         logo_ico.setMinimumHeight(50)
         logo_txt = QLabel("SiMonPro")
-        logo_txt.setStyleSheet(f"color:{"#F7F8F0"}; font-size:24px; font-weight:700; border:none; background:transparent;")
+        logo_txt.setStyleSheet(
+            "color:#F7F8F0; font-size:24px; font-weight:700; border:none; background:transparent;"
+        )
         logo_lay.addWidget(logo_ico)
         logo_lay.addWidget(logo_txt)
         logo_lay.addStretch()
@@ -93,39 +123,70 @@ class Sidebar(QFrame):
         lay.addSpacing(8)
 
         for icon_name, label, active in self.MENU:
-            lay.addWidget(self._menu_btn(icon_name, label, active))
+            btn = self._menu_btn(icon_name, label, active)
+            self._menu_btns[label] = btn
+            btn.mousePressEvent = self._make_menu_handler(label)
+            lay.addWidget(btn)
             lay.addSpacing(6)
+
+        self.set_active("Target")
         lay.addStretch()
-        lay.addWidget(self._menu_btn("mdi.logout", "Keluar", False))
+        logout_btn = self._menu_btn("mdi.logout", "Keluar", False)
+        logout_btn.mousePressEvent = self._make_logout_handler()
+        lay.addWidget(logout_btn)
         lay.addSpacing(16)
+
+    def _make_menu_handler(self, label):
+        def handler(event):
+            if event.button() == Qt.MouseButton.LeftButton:
+                self.menu_changed.emit(label)
+                self.menu_clicked.emit(label)
+        return handler
+
+    def _make_logout_handler(self):
+        def handler(event):
+            if event.button() == Qt.MouseButton.LeftButton:
+                self.logout_clicked.emit()
+        return handler
+
+    def set_active(self, label):
+        for lbl, btn in self._menu_btns.items():
+            icon_name = next(
+                (i for i, label_text, _ in self.MENU if label_text == lbl), None
+            )
+            if lbl == label:
+                btn.setStyleSheet(self.ACTIVE_STYLE)
+                ico_color = "#355872"
+                txt_color = "#355872"
+                txt_weight = "700"
+            else:
+                btn.setStyleSheet(self.INACTIVE_STYLE)
+                ico_color = "#F7F8F0"
+                txt_color = "#F7F8F0"
+                txt_weight = "600"
+            row_lay = btn.layout()
+            ico_lbl = row_lay.itemAt(0).widget()
+            txt_lbl = row_lay.itemAt(1).widget()
+            if icon_name:
+                ico_lbl.setPixmap(qta.icon(icon_name, color=ico_color).pixmap(24, 24))
+            font_size = "16px" if lbl == "Input Produksi" else "18px"
+            txt_lbl.setStyleSheet(
+                f"color:{txt_color}; font-size:{font_size}; font-weight:{txt_weight}; border:none; background:transparent;"
+            )
 
     def _menu_btn(self, icon_name, label, active):
         btn = QFrame()
+        btn.setObjectName("menuBtn")
         btn.setFixedHeight(44)
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
 
         if active:
-            btn.setStyleSheet(f"""
-                QFrame {{
-                    background: {"#9CD5FF"};
-                    border-radius: 10px;
-                    border: none;
-                }}
-            """)
+            btn.setStyleSheet(self.ACTIVE_STYLE)
             ico_color  = "#355872"
             txt_color  = "#355872"
             txt_weight = "700"
         else:
-            btn.setStyleSheet("""
-                QFrame {
-                    background: transparent;
-                    border: none;
-                }
-                QFrame:hover {
-                    background: rgba(156,213,255,0.12);
-                    border-radius: 10px;
-                }
-            """)
+            btn.setStyleSheet(self.INACTIVE_STYLE)
             ico_color  = "#F7F8F0"
             txt_color  = "#F7F8F0"
             txt_weight = "600"
@@ -140,7 +201,10 @@ class Sidebar(QFrame):
         ico.setStyleSheet("border:none; background:transparent;")
 
         lbl = QLabel(label)
-        lbl.setStyleSheet(f"color:{txt_color}; font-size:18px; font-weight:{txt_weight}; border:none; background:transparent;")
+        font_size = "16px" if label == "Input Produksi" else "18px"
+        lbl.setStyleSheet(
+            f"color:{txt_color}; font-size:{font_size}; font-weight:{txt_weight}; border:none; background:transparent;"
+        )
 
         row.addWidget(ico)
         row.addWidget(lbl)
@@ -150,8 +214,9 @@ class Sidebar(QFrame):
    
 #Topbar
 class Topbar(QFrame):
-    def __init__(self, parent=None):
+    def __init__(self, user=None, parent=None):
         super().__init__(parent)
+        self.user = user
         self.setFixedHeight(70)
         self.setStyleSheet("background:transparent; border:none;")
 
@@ -159,7 +224,9 @@ class Topbar(QFrame):
         lay.setContentsMargins(28, 25, 28, 0)
 
         title = QLabel("Pengaturan Target")
-        title.setStyleSheet(f"color:{"#355872"}; font-size:36px; font-weight:700; border:none; background:transparent;")
+        title.setStyleSheet(
+            "color:#355872; font-size:36px; font-weight:700; border:none; background:transparent;"
+        )
         lay.addWidget(title)
         lay.addStretch()
 
@@ -168,10 +235,16 @@ class Topbar(QFrame):
         user_ico.setPixmap(qta.icon("fa5s.user-circle", color="#355872").pixmap(50, 50))
         user_ico.setStyleSheet("border:none; background:transparent;")
 
-        name_lbl = QLabel("Yumna Fathonah")
-        name_lbl.setStyleSheet(f"color:{"#355872"}; font-size:18px; font-weight:700; border:none; background:transparent;")
-        role_lbl = QLabel("Admin")
-        role_lbl.setStyleSheet(f"color:{"#355872"}; font-size:14px; font-weight:400; border:none; background:transparent;")
+        name = user.username if user else "Admin"
+        role = user.role if user else "Admin"
+        name_lbl = QLabel(name)
+        name_lbl.setStyleSheet(
+            "color:#355872; font-size:18px; font-weight:700; border:none; background:transparent;"
+        )
+        role_lbl = QLabel(role)
+        role_lbl.setStyleSheet(
+            "color:#355872; font-size:14px; font-weight:400; border:none; background:transparent;"
+        )
 
         info_col = QFrame()
         info_col.setStyleSheet("background:transparent; border:none;")
@@ -229,6 +302,7 @@ COMBO_STYLE = """
         font-size: 14px;
         color: #355872;
         background: white;
+        height: 45px;
     }
     QComboBox::drop-down {
         border: none;
@@ -259,42 +333,48 @@ COMBO_STYLE = """
     }
 """
 
-DATE_STYLE = """
-    QDateEdit {
-        border: 1px solid #355872;
-        border-radius: 10px;
-        padding: 0 12px;
-        font-size: 16px;
-        background: white;
-        color: #355872;
-    }
-    QDateEdit::drop-down {
-        border: none;
-        width: 30px;
-    }
-    QDateEdit::down-arrow {
-        image: none;
-    }
-"""
+def make_dropdown(items, placeholder):
+    cb = QComboBox()
+    cb.setEditable(True)
+    cb.lineEdit().setReadOnly(False)
+    cb.setFixedHeight(45)
+    cb.setStyleSheet(COMBO_STYLE)
+    cb.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+
+    cb.addItem("")
+    cb.addItems(items)
+
+    cb.lineEdit().setPlaceholderText(placeholder)
+    cb.completer().setFilterMode(Qt.MatchFlag.MatchContains)
+
+    # Custom down arrow
+    icon_lbl = QLabel(cb)
+    icon_lbl.setPixmap(qta.icon("fa5s.angle-down", color="#355872").pixmap(25, 25))
+    icon_lbl.setStyleSheet("border:none; background:transparent;")
+    icon_lbl.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+
+    original_resize = cb.resizeEvent
+
+    def _reposition(e):
+        icon_lbl.move(cb.width() - 30, (cb.height() - 20) // 2)
+        original_resize(e)
+
+    cb.resizeEvent = _reposition
+    cb.lineEdit().setReadOnly(False)
+    return cb
 
 #Form Card Target Baru
 class FormCard(Card):
-    def __init__(self, parent=None, table_card=None):
-        super().__init__(parent)
-        self.table_card = table_card
+    save_clicked = pyqtSignal(int, str, str, int, int, int, int)
 
-        self.product_category_map = {
-            'Kaos Polos': 'Atasan',
-            'Hoodie': 'Atasan',
-            'Dress Floral': 'Dress',
-            'Rok Plisket': 'Bawahan'
-        }
+    def __init__(self, parent=None, products=None):
+        super().__init__(parent)
+        self._products = products or []
 
         lay = QVBoxLayout(self)
         lay.setContentsMargins(24, 20, 24, 20)
         lay.setSpacing(14)
 
-        # Title
         title = QLabel("Tambah Target Baru")
         title.setStyleSheet(
             "color: #355872; font-size: 20px; font-weight: 700; "
@@ -302,7 +382,6 @@ class FormCard(Card):
         )
         lay.addWidget(title)
 
-        # Row 1: Pilih Produk | Kategori Produk
         row1 = QHBoxLayout()
         row1.setSpacing(18)
         col_produk = QVBoxLayout()
@@ -311,7 +390,7 @@ class FormCard(Card):
         self.combo_produk = QComboBox()
         self.combo_produk.setFixedHeight(40)
         self.combo_produk.setStyleSheet(COMBO_STYLE)
-        self.combo_produk.addItems([""] + list(self.product_category_map.keys()))
+        self._refresh_combo()
         self.combo_produk.setEditable(True)
         self.combo_produk.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
         self.combo_produk.completer().setFilterMode(Qt.MatchFlag.MatchContains)
@@ -324,6 +403,11 @@ class FormCard(Card):
             a.move(c.width() - 28, (c.height() - 20) // 2)
         )
         col_produk.addWidget(self.combo_produk)
+
+        self.err_produk = QLabel("")
+        self.err_produk.setVisible(False)
+        self.err_produk.setStyleSheet("color: #FF4D4D; font-size: 12px; font-weight: 500; border: none; background: transparent;")
+        col_produk.addWidget(self.err_produk)
 
         col_kat = QVBoxLayout()
         col_kat.setSpacing(4)
@@ -339,7 +423,9 @@ class FormCard(Card):
         row1.addLayout(col_kat, stretch=1)
         lay.addLayout(row1)
 
-        # Row 2: Target Bulanan | Target Harian
+        self.err_produk.setVisible(False)
+        lay.addWidget(self.err_produk)
+
         row2 = QHBoxLayout()
         row2.setSpacing(20)
 
@@ -375,40 +461,47 @@ class FormCard(Card):
         row2.addLayout(col_har, stretch=1)
         lay.addLayout(row2)
 
-        # Row 3: Periode (half width)
         row3 = QHBoxLayout()
         row3.setSpacing(20)
 
+        # Periode section dengan 2 dropdown (Bulan & Tahun)
         col_per = QVBoxLayout()
-        col_per.setSpacing(4)
-        col_per.addWidget(make_label("Periode (Bulan/Tahun)"))
+        col_per.setSpacing(10)
+        col_per.addWidget(make_label("Periode"))
 
-        self.inp_date = QDateEdit()
-        self.inp_date.setFixedHeight(40)
-        self.inp_date.setDisplayFormat("MM/yyyy")
-        self.inp_date.setDate(QDate.currentDate())
-        self.inp_date.setCalendarPopup(True)
-        self.inp_date.setStyleSheet(DATE_STYLE)
+        # Dropdown container
+        dropdowns_hbox = QHBoxLayout()
+        dropdowns_hbox.setSpacing(15)
 
-        cal_icon = QLabel(self.inp_date)
-        cal_icon.setPixmap(qta.icon("mdi.calendar-month-outline", color="#355872").pixmap(28, 28))
-        cal_icon.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-        cal_icon.setStyleSheet("""
-            border: none;
-            background: transparent;
-        """)
-        cal_icon.setFixedSize(25, 25)
-        self.inp_date.resizeEvent = lambda e, d=self.inp_date, i=cal_icon: (
-            i.move(d.width() - 40, (d.height() - 20) // 2))
-       
-        col_per.addWidget(self.inp_date)
+        # Bulan dropdown
+        bln_vbox = QVBoxLayout()
+        bln_vbox.setSpacing(4)
+        bln_lbl = QLabel("Bulan")
+        bln_lbl.setStyleSheet("color: #355872; font-size: 16px; font-weight: 500; border:none;")
+        months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", 
+                  "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
+        self.combo_bulan = make_dropdown(months, "Bulan")
+        bln_vbox.addWidget(bln_lbl) 
+        bln_vbox.addWidget(self.combo_bulan)
+        dropdowns_hbox.addLayout(bln_vbox, 1)
 
+        # Tahun dropdown
+        thn_vbox = QVBoxLayout()
+        thn_vbox.setSpacing(4)
+        thn_lbl = QLabel("Tahun")
+        thn_lbl.setStyleSheet("color: #355872; font-size: 16px; font-weight: 500; border:none;")
+        years = [str(i) for i in range(2020, 2031)]
+        self.combo_tahun = make_dropdown(years, "Tahun")
+        thn_vbox.addWidget(thn_lbl)
+        thn_vbox.addWidget(self.combo_tahun)
+        dropdowns_hbox.addLayout(thn_vbox, 1)
+
+        col_per.addLayout(dropdowns_hbox)
         row3.addLayout(col_per, stretch=1)
         col_empty = QVBoxLayout()
         row3.addLayout(col_empty, stretch=1)
         lay.addLayout(row3)
 
-        # Simpan button
         self.btn_save = QPushButton()
         self.btn_save.setText(" Simpan Target")
         self.btn_save.setIcon(qta.icon("mdi.content-save-outline", color="#355872"))
@@ -435,56 +528,123 @@ class FormCard(Card):
         self.btn_save.setGraphicsEffect(shadow)
         lay.addWidget(self.btn_save)
 
-        # Signals
-        self.combo_produk.currentTextChanged.connect(self.update_category)
+        self.combo_produk.currentIndexChanged.connect(self.update_category)
+        self.inp_bul.textChanged.connect(self._auto_calculate_harian)
+        self.combo_bulan.currentIndexChanged.connect(self._auto_calculate_harian)
+        self.combo_tahun.currentIndexChanged.connect(self._auto_calculate_harian)
         self.btn_save.clicked.connect(self.save_target)
 
-    def update_category(self, text):
-        category = self.product_category_map.get(text, "")
-        self.inp_kat.setText(category)
+    def _refresh_combo(self):
+        self.combo_produk.blockSignals(True)
+        self.combo_produk.clear()
+        self.combo_produk.addItem("", None)
+        for p in self._products:
+            self.combo_produk.addItem(p["nama_produk"], p["produk_id"])
+        self.combo_produk.blockSignals(False)
+
+    def set_products(self, products):
+        self._products = products
+        self._refresh_combo()
+
+    def update_category(self, index):
+        produk_id = self.combo_produk.currentData()
+        if produk_id is None:
+            self.inp_kat.setText("")
+            return
+        for p in self._products:
+            if p["produk_id"] == produk_id:
+                self.inp_kat.setText(p.get("nama_kategori", ""))
+                return
+        self.inp_kat.setText("")
+
+    def _auto_calculate_harian(self):
+        bul_text = self.inp_bul.text().strip()
+        if bul_text and bul_text.isdigit() and int(bul_text) > 0:
+            bulan_map = {
+                "Januari": 1, "Februari": 2, "Maret": 3, "April": 4,
+                "Mei": 5, "Juni": 6, "Juli": 7, "Agustus": 8,
+                "September": 9, "Oktober": 10, "November": 11, "Desember": 12
+            }
+            bulan_str = self.combo_bulan.currentText().strip()
+            tahun_str = self.combo_tahun.currentText().strip()
+            if bulan_str and tahun_str and bulan_str in bulan_map:
+                tahun = int(tahun_str)
+                bulan = bulan_map[bulan_str]
+                days = monthrange(tahun, bulan)[1]
+                harian = int(bul_text) // days
+                self.inp_har.setText(str(harian))
 
     def save_target(self):
-        # Reset errors
+        self.combo_produk.setStyleSheet(COMBO_STYLE)
         self.inp_bul.setStyleSheet(INPUT_STYLE)
         self.inp_har.setStyleSheet(INPUT_STYLE)
+        self.err_produk.setVisible(False)
+        self.err_produk.setText("")
         self.err_bul.setText("")
         self.err_har.setText("")
+
         valid = True
-        bul_val = self.inp_bul.text().strip()
-        if not bul_val or int(bul_val) <= 0:
-            self.inp_bul.setStyleSheet(ERROR_STYLE)
-            self.err_bul.setText("Target bulanan harus lebih dari 0")
+        produk_id = self.combo_produk.currentData()
+        nama_produk = self.combo_produk.currentText()
+
+        if not produk_id:
+            self.err_produk.setText("Pilih produk terlebih dahulu")
+            self.err_produk.setVisible(True)
+            self.combo_produk.setStyleSheet(COMBO_STYLE.replace("1px solid #355872", "2px solid #FF4D4D"))
             valid = False
 
+        bul_val = self.inp_bul.text().strip()
         har_val = self.inp_har.text().strip()
-        if not har_val or int(har_val) <= 0:
+        bul_ok = bool(bul_val) and int(bul_val) > 0
+        har_ok = bool(har_val) and int(har_val) > 0
+
+        if not bul_ok and not har_ok:
+            self.inp_bul.setStyleSheet(ERROR_STYLE)
+            self.err_bul.setText("Isi target bulanan atau target harian")
             self.inp_har.setStyleSheet(ERROR_STYLE)
-            self.err_har.setText("Target harian harus lebih dari 0")
+            self.err_har.setText("Isi target bulanan atau target harian")
             valid = False
 
         if valid:
-            # Placeholder logic to add to table
-            if self.table_card:
-                produk = self.combo_produk.currentText()
-                kategori = self.inp_kat.text()
-                periode = self.inp_date.date().toString("MMMM yyyy")
-                self.table_card.add_target(
-                    produk, kategori, periode, f"{int(bul_val):,}", f"{int(har_val):,}"
-                )
-           
-            # Reset form
-            self.combo_produk.setCurrentIndex(0)
-            self.inp_bul.clear()
-            self.inp_har.clear()
+            bulan_map = {
+                "Januari": 1, "Februari": 2, "Maret": 3, "April": 4,
+                "Mei": 5, "Juni": 6, "Juli": 7, "Agustus": 8,
+                "September": 9, "Oktober": 10, "November": 11, "Desember": 12
+            }
+
+            bulan_str = self.combo_bulan.currentText().strip()
+            tahun_str = self.combo_tahun.currentText().strip()
+
+            if not bulan_str or not tahun_str:
+                self.err_bul.setText("Periode harus diisi lengkap!")
+                valid = False
+            else:
+                try:
+                    tahun = int(tahun_str)
+                    bulan = bulan_map.get(bulan_str, 0)
+                    if bulan == 0:
+                        self.err_bul.setText("Bulan tidak valid!")
+                        valid = False
+                    else:
+                        self.save_clicked.emit(
+                            produk_id,
+                            nama_produk,
+                            self.inp_kat.text(),
+                            int(bul_val) if bul_val else 0,
+                            int(har_val) if har_val else 0,
+                            tahun,
+                            bulan,
+                        )
+                        self.combo_produk.setCurrentIndex(0)
+                        self.inp_bul.clear()
+                        self.inp_har.clear()
+                        self.combo_bulan.setCurrentIndex(0)
+                        self.combo_tahun.setCurrentIndex(0)
+                except ValueError:
+                    self.err_bul.setText("Tahun harus berupa angka!")
+                    valid = False
 
 #Table Card (Target Saat ini)
-TARGET_DATA = [
-    ("Kaos Polos",   "Atasan",   "April 2026", "3.500", "175"),
-    ("Hoodie",       "Atasan",   "April 2026", "2.800", "140"),
-    ("Dress Floral", "Dress",    "April 2026", "3.200", "160"),
-    ("Rok Plisket",  "Bawahan",  "April 2026", "2.800", "140"),
-]
-
 HEADERS = ["Produk", "Kategori", "Periode", "Target Bulanan", "Target Harian"]
 
 class TableCard(Card):
@@ -546,13 +706,20 @@ class TableCard(Card):
             }
         """)
 
-        # Load initial data
-        for data in TARGET_DATA:
-            self.add_target(*data)
-
         lay.addWidget(self.table)
 
-    def add_target(self, produk, kat, periode, bul, har):
+    def set_targets(self, target_list):
+        self.table.setRowCount(0)
+        for t in target_list:
+            self._add_row(
+                t["produk"],
+                t["kategori"],
+                t["periode"],
+                f"{t['target_bulanan']:,}",
+                f"{t['target_harian']:,}",
+            )
+
+    def _add_row(self, produk, kat, periode, bul, har):
         row = self.table.rowCount()
         self.table.insertRow(row)
         items = [produk, kat, periode, bul, har]
@@ -566,25 +733,80 @@ class TableCard(Card):
 
 # Main Window
 class TargetWindow(GradientBackground):
-    def __init__(self):
+    logout_clicked = pyqtSignal()
+
+    def __init__(
+        self,
+        user=None,
+        session=None,
+        on_logout=None,
+        embedded=False,
+        on_back=None,
+    ):
         super().__init__()
-        self.setWindowTitle("SiMonPro - Pengaturan Target")
-        self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self._drag_pos = None
+        self.user = user
+        self.session = session
+        self.on_logout = on_logout
+        self.embedded = embedded
+        self.on_back = on_back
+
+        db = get_db()
+        self._target_service = TargetService(db)
+        self._produk_service = ProdukService(db)
+
+        if not embedded:
+            self.setWindowTitle("SiMonPro - Pengaturan Target")
         self.init_ui()
+        self._refresh_table()
+
+    def _load_products(self):
+        try:
+            produk_list = self._produk_service.get_daftar_produk()
+            return [
+                {
+                    "produk_id": p.produk_id,
+                    "nama_produk": p.nama_produk,
+                    "nama_kategori": p.nama_kategori,
+                }
+                for p in produk_list
+            ]
+        except Exception as e:
+            print(f"[TargetWindow] Gagal memuat produk: {e}")
+            return []
+
+    def _refresh_table(self):
+        try:
+            target_list = self._target_service.get_all_targets_grouped()
+            self.table_card.set_targets(target_list)
+        except Exception as e:
+            print(f"[TargetWindow] Gagal memuat target: {e}")
+
+    def _on_save_target(self, produk_id, nama_produk, nama_kategori, target_bulanan, target_harian, tahun, bulan):
+        try:
+            self._target_service.save_target(produk_id, target_bulanan, target_harian, tahun, bulan)
+            self._refresh_table()
+        except Exception as e:
+            print(f"[TargetWindow] Gagal menyimpan target: {e}")
 
     def init_ui(self):
         root = QHBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
-        root.addWidget(Sidebar())
+        if not self.embedded:
+            self.sidebar = Sidebar()
+            self.sidebar.menu_changed.connect(self.navigate_to)
+            self.sidebar.menu_changed.connect(self.sidebar.set_active)
+            self.sidebar.menu_clicked.connect(self._handle_menu_clicked)
+            self.sidebar.logout_clicked.connect(self.logout_clicked)
+            if self.on_logout:
+                self.sidebar.logout_clicked.connect(self.on_logout)
+            root.addWidget(self.sidebar)
         content = QWidget()
         content.setStyleSheet("background: transparent;")
         c_lay = QVBoxLayout(content)
         c_lay.setContentsMargins(0, 0, 0, 0)
         c_lay.setSpacing(0)
-        c_lay.addWidget(Topbar())
+        c_lay.addWidget(Topbar(user=self.user))
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
@@ -595,7 +817,9 @@ class TargetWindow(GradientBackground):
         inner_lay.setContentsMargins(28, 16, 28, 28)
         inner_lay.setSpacing(18)
         self.table_card = TableCard()
-        self.form_card = FormCard(table_card=self.table_card)
+        produk_list = self._load_products()
+        self.form_card = FormCard(products=produk_list)
+        self.form_card.save_clicked.connect(self._on_save_target)
         inner_lay.addWidget(self.form_card)
         inner_lay.addWidget(self.table_card)
         inner_lay.addStretch()
@@ -603,21 +827,22 @@ class TargetWindow(GradientBackground):
         c_lay.addWidget(scroll)
         root.addWidget(content)
 
-    def mousePressEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton:
-            self._drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
-            event.accept()
+    def navigate_to(self, label):
+        if self.embedded:
+            parent = self.parent()
+            while parent and not hasattr(parent, "navigate_to"):
+                parent = parent.parent()
+            if parent and hasattr(parent, "navigate_to"):
+                parent.navigate_to(label)
 
-    def mouseMoveEvent(self, event):
-        if event.buttons() == Qt.MouseButton.LeftButton and self._drag_pos:
-            self.move(event.globalPosition().toPoint() - self._drag_pos)
-            event.accept()
-
-    def mouseReleaseEvent(self, event):
-        self._drag_pos = None
+    def _handle_menu_clicked(self, label):
+        if label == "Target":
+            return
+        if self.on_back:
+            self.on_back(label)
 
     def keyPressEvent(self, event):
-        if event.key() == Qt.Key.Key_Escape:
+        if not self.embedded and event.key() == Qt.Key.Key_Escape:
             self.close()
 
 if __name__ == "__main__":

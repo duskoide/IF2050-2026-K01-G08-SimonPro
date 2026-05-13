@@ -103,11 +103,6 @@ class LoginWindow(GradientBackground):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("SiMonPro - Login")
-        # PyQt6: WindowType
-        self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
-        # PyQt6: WidgetAttribute
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self._drag_pos = None
         self.init_ui()
 
     def init_ui(self):
@@ -264,20 +259,6 @@ class LoginWindow(GradientBackground):
         password = self.password_field.input.text()
         self.clear_error()
         self.controller.login(username, password)
-
-    def mousePressEvent(self, event):
-        # PyQt6: MouseButton & globalPosition().toPoint()
-        if event.button() == Qt.MouseButton.LeftButton:
-            self._drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
-            event.accept()
-
-    def mouseMoveEvent(self, event):
-        if event.buttons() == Qt.MouseButton.LeftButton and self._drag_pos:
-            self.move(event.globalPosition().toPoint() - self._drag_pos)
-            event.accept()
-
-    def mouseReleaseEvent(self, event):
-        self._drag_pos = None
 
     def keyPressEvent(self, event):
         # PyQt6: Key namespace

@@ -30,6 +30,11 @@ from PyQt6.QtWidgets import (
 )
 
 from src.services.DashboardService import DashboardService
+from src.views.targetviewer import TargetWindow
+from src.views.pencapaianviewer import PencapaianWindow
+from src.views.defectviewer import DefectWindow
+from src.views.produksiviewer import InputProduksiWindow
+from src.views.laporanviewer import LaporanWindow
 
 
 # Background radial gradient
@@ -50,13 +55,15 @@ class GradientBackground(QWidget):
 class Card(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setStyleSheet(f"""
-            QFrame {{
-                background-color: {"#FFFFFF"};
+        self.setStyleSheet(
+            """
+            QFrame {
+                background-color: #FFFFFF;
                 border-radius: 15px;
-                border: 1px solid {"#35587226"};
-            }}
-        """)
+                border: 1px solid #35587226;
+            }
+            """
+        )
         shadow = QGraphicsDropShadowEffect(self)
         shadow.setBlurRadius(25)
         shadow.setOffset(0, 6)
@@ -129,11 +136,36 @@ class BarChart(QWidget):
         self.target = [10500, 11000, 11500, 11800]
         self.actual = [10000, 10800, 11200, 11600]
         self.setMinimumHeight(380)
+        self.setMouseTracking(True)
+        self.hover_index = -1
+        self.hover_pos = None
 
     def set_data(self, labels, target, actual):
         self.labels = labels
         self.target = target
         self.actual = actual
+        self.update()
+
+    def mouseMoveEvent(self, event):
+        W, H = self.width(), self.height()
+        pl, pr = 54, 16
+        cw = W - pl - pr
+        n = len(self.labels)
+        if n > 0:
+            gw = cw / n
+            x = event.position().x()
+            idx = int((x - pl) / gw)
+            if 0 <= idx < n:
+                self.hover_index = idx
+                self.hover_pos = event.position()
+            else:
+                self.hover_index = -1
+        else:
+            self.hover_index = -1
+        self.update()
+
+    def leaveEvent(self, event):
+        self.hover_index = -1
         self.update()
 
     def paintEvent(self, event):
@@ -143,7 +175,7 @@ class BarChart(QWidget):
         pl, pr, pt, pb = 54, 16, 16, 62
         cw = W - pl - pr
         ch = H - pt - pb
-        max_v = max(self.target + self.actual) * 1.1
+        max_v = max(self.target + self.actual + [1]) * 1.1
         n = len(self.labels)
         if n == 0:
             return
@@ -171,7 +203,13 @@ class BarChart(QWidget):
 
             th = (self.target[i] / max_v) * ch
             tx, ty = cx - bw - 2, pt + ch - th
-            p.setBrush(QBrush(QColor("#7AAACE")))
+            
+            # Hover effect for target bar
+            color_target = QColor("#7AAACE")
+            if self.hover_index == i:
+                color_target = color_target.lighter(110)
+            
+            p.setBrush(QBrush(color_target))
             p.setPen(Qt.PenStyle.NoPen)
             path = QPainterPath()
             path.addRoundedRect(QRectF(tx, ty, bw, th), 4, 4)
@@ -179,7 +217,13 @@ class BarChart(QWidget):
 
             ah = (self.actual[i] / max_v) * ch
             ax, ay = cx + 2, pt + ch - ah
-            p.setBrush(QBrush(QColor("#9CD5FF")))
+            
+            # Hover effect for actual bar
+            color_actual = QColor("#9CD5FF")
+            if self.hover_index == i:
+                color_actual = color_actual.lighter(110)
+                
+            p.setBrush(QBrush(color_actual))
             path2 = QPainterPath()
             path2.addRoundedRect(QRectF(ax, ay, bw, ah), 4, 4)
             p.drawPath(path2)
@@ -229,6 +273,36 @@ class BarChart(QWidget):
             "Aktual",
         )
 
+        # Tooltip
+        if self.hover_index != -1 and self.hover_pos:
+            idx = self.hover_index
+            target = self.target[idx]
+            actual = self.actual[idx]
+            percent = (actual / target * 100) if target > 0 else 0
+            
+            text = f"{self.labels[idx]}\nTarget: {target:,}\nAktual: {actual:,}\nPencapaian: {percent:.1f}%"
+            
+            p.setFont(QFont("Inter", 12))
+            metrics = p.fontMetrics()
+            lines = text.split('\n')
+            tw = max([metrics.horizontalAdvance(l) for l in lines]) + 20
+            th = metrics.height() * len(lines) + 10
+            
+            tx = self.hover_pos.x() + 10
+            ty = self.hover_pos.y() - th - 10
+            
+            if tx + tw > W: tx = self.hover_pos.x() - tw - 10
+            if ty < 0: ty = self.hover_pos.y() + 10
+            
+            rect = QRectF(tx, ty, tw, th)
+            p.setBrush(QBrush(QColor(53, 88, 114, 230)))
+            p.setPen(Qt.PenStyle.NoPen)
+            p.drawRoundedRect(rect, 5, 5)
+            
+            p.setPen(QColor("#FFFFFF"))
+            for i, line in enumerate(lines):
+                p.drawText(int(tx + 10), int(ty + metrics.ascent() + 5 + i * metrics.height()), line)
+
 
 # Line Chart
 class LineChart(QWidget):
@@ -236,11 +310,42 @@ class LineChart(QWidget):
         super().__init__(parent)
         self.labels = ["Jan", "Feb", "Mar", "Apr"]
         self.values = [120, 115, 145, 85]
+        self.actual = [1000, 1000, 1000, 1000]
         self.setMinimumHeight(380)
+        self.setMouseTracking(True)
+        self.hover_index = -1
+        self.hover_pos = None
 
-    def set_data(self, labels, values):
+    def set_data(self, labels, values, actual=None):
         self.labels = labels
         self.values = values
+        if actual:
+            self.actual = actual
+        self.update()
+
+    def mouseMoveEvent(self, event):
+        W, H = self.width(), self.height()
+        pl, pr = 54, 16
+        cw = W - pl - pr
+        n = len(self.labels)
+        if n > 1:
+            gw = cw / (n - 1)
+            x = event.position().x()
+            idx = round((x - pl) / gw)
+            if 0 <= idx < n:
+                self.hover_index = idx
+                self.hover_pos = event.position()
+            else:
+                self.hover_index = -1
+        elif n == 1:
+            self.hover_index = 0
+            self.hover_pos = event.position()
+        else:
+            self.hover_index = -1
+        self.update()
+
+    def leaveEvent(self, event):
+        self.hover_index = -1
         self.update()
 
     def paintEvent(self, event):
@@ -250,13 +355,15 @@ class LineChart(QWidget):
         pl, pr, pt, pb = 54, 16, 16, 62
         cw = W - pl - pr
         ch = H - pt - pb
-        max_v = 180
+        max_v = max(self.values + [1]) * 1.2
         n = len(self.values)
         if n == 0:
             return
 
         def px(i):
-            return pl + i * cw / (n - 1)
+            if n > 1:
+                return pl + i * cw / (n - 1)
+            return pl + cw / 2
 
         def py(v):
             return pt + ch - (v / max_v) * ch
@@ -300,7 +407,10 @@ class LineChart(QWidget):
 
         # Titik
         for i in range(n):
-            p.setBrush(QBrush(QColor("#FFFFFF")))
+            color = QColor("#FFFFFF")
+            if self.hover_index == i:
+                color = QColor("#9CD5FF")
+            p.setBrush(QBrush(color))
             p.setPen(QPen(QColor("#355872"), 2))
             p.drawEllipse(QPointF(px(i), py(self.values[i])), 5, 5)
 
@@ -345,6 +455,36 @@ class LineChart(QWidget):
             "Defect",
         )
 
+        # Tooltip
+        if self.hover_index != -1 and self.hover_pos:
+            idx = self.hover_index
+            defect = self.values[idx]
+            actual = self.actual[idx] if idx < len(self.actual) else 0
+            percent = (defect / actual * 100) if actual > 0 else 0
+            
+            text = f"{self.labels[idx]}\nDefect: {defect:,}\nRate: {percent:.1f}%"
+            
+            p.setFont(QFont("Inter", 12))
+            metrics = p.fontMetrics()
+            lines = text.split('\n')
+            tw = max([metrics.horizontalAdvance(l) for l in lines]) + 20
+            th = metrics.height() * len(lines) + 10
+            
+            tx = self.hover_pos.x() + 10
+            ty = self.hover_pos.y() - th - 10
+            
+            if tx + tw > W: tx = self.hover_pos.x() - tw - 10
+            if ty < 0: ty = self.hover_pos.y() + 10
+            
+            rect = QRectF(tx, ty, tw, th)
+            p.setBrush(QBrush(QColor(53, 88, 114, 230)))
+            p.setPen(Qt.PenStyle.NoPen)
+            p.drawRoundedRect(rect, 5, 5)
+            
+            p.setPen(QColor("#FFFFFF"))
+            for i, line in enumerate(lines):
+                p.drawText(int(tx + 10), int(ty + metrics.ascent() + 5 + i * metrics.height()), line)
+
 
 # Sidebar
 class Sidebar(QFrame):
@@ -359,18 +499,18 @@ class Sidebar(QFrame):
     ]
 
     ACTIVE_STYLE = """
-        QFrame {
+        QFrame#menuBtn {
             background: #9CD5FF;
             border-radius: 10px;
             border: none;
         }
     """
     INACTIVE_STYLE = """
-        QFrame {
+        QFrame#menuBtn {
             background: transparent;
             border: none;
         }
-        QFrame:hover {
+        QFrame#menuBtn:hover {
             background: rgba(156,213,255,0.12);
             border-radius: 10px;
         }
@@ -378,9 +518,11 @@ class Sidebar(QFrame):
 
     logout_clicked = pyqtSignal()
     menu_changed = pyqtSignal(str)
+    menu_clicked = pyqtSignal(str)
 
-    def __init__(self, parent=None):
+    def __init__(self, user=None, parent=None):
         super().__init__(parent)
+        self.user = user
         self.setFixedWidth(230)
         self.setStyleSheet("QFrame { background:#355872; border:none; }")
         self._menu_btns = {}
@@ -426,11 +568,7 @@ class Sidebar(QFrame):
         for icon_name, label in self.MENU:
             btn = self._menu_btn(icon_name, label)
             self._menu_btns[label] = btn
-            btn.mousePressEvent = lambda event, lbl=label: (
-                self.menu_changed.emit(lbl)
-                if event.button() == Qt.MouseButton.LeftButton
-                else None
-            )
+            btn.mousePressEvent = self._make_menu_handler(label)
             lay.addWidget(btn)
             lay.addSpacing(6)
 
@@ -440,17 +578,15 @@ class Sidebar(QFrame):
 
         # Logout button — clickable
         logout_btn = self._menu_btn("mdi.logout", "Keluar")
-        logout_btn.mousePressEvent = lambda event: (
-            self.logout_clicked.emit()
-            if event.button() == Qt.MouseButton.LeftButton
-            else None
-        )
+        logout_btn.mousePressEvent = self._make_logout_handler()
         lay.addWidget(logout_btn)
         lay.addSpacing(16)
 
     def set_active(self, label):
         for lbl, btn in self._menu_btns.items():
             icon_name = next((i for i, l in self.MENU if l == lbl), None)
+            is_restricted = self.user and self.user.role == "owner" and lbl in ["Target", "Input Produksi"]
+            
             if lbl == label:
                 btn.setStyleSheet(self.ACTIVE_STYLE)
                 ico_color = "#355872"
@@ -458,9 +594,14 @@ class Sidebar(QFrame):
                 txt_weight = "700"
             else:
                 btn.setStyleSheet(self.INACTIVE_STYLE)
-                ico_color = "#F7F8F0"
-                txt_color = "#F7F8F0"
+                if is_restricted:
+                    ico_color = "rgba(247, 248, 240, 0.4)"
+                    txt_color = "rgba(247, 248, 240, 0.4)"
+                else:
+                    ico_color = "#F7F8F0"
+                    txt_color = "#F7F8F0"
                 txt_weight = "600"
+                
             row_lay = btn.layout()
             ico_lbl = row_lay.itemAt(0).widget()
             txt_lbl = row_lay.itemAt(1).widget()
@@ -472,12 +613,20 @@ class Sidebar(QFrame):
 
     def _menu_btn(self, icon_name, label):
         btn = QFrame()
+        btn.setObjectName("menuBtn")
         btn.setFixedHeight(44)
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         btn.setStyleSheet(self.INACTIVE_STYLE)
 
-        ico_color = "#F7F8F0"
-        txt_color = "#F7F8F0"
+        is_restricted = self.user and self.user.role == "owner" and label in ["Target", "Input Produksi"]
+        
+        if is_restricted:
+            ico_color = "rgba(247, 248, 240, 0.4)"
+            txt_color = "rgba(247, 248, 240, 0.4)"
+        else:
+            ico_color = "#F7F8F0"
+            txt_color = "#F7F8F0"
+        
         txt_weight = "600"
 
         row = QHBoxLayout(btn)
@@ -501,13 +650,31 @@ class Sidebar(QFrame):
 
         return btn
 
+    def _make_menu_handler(self, label):
+        def handler(event):
+            if event.button() == Qt.MouseButton.LeftButton:
+                if self.user and self.user.role == "owner" and label in ["Target", "Input Produksi"]:
+                    from src.views.ownerview import OwnerPopup
+                    popup = OwnerPopup(self.parent())
+                    popup.show_message("Owner tidak memiliki akses untuk menu ini!")
+                    popup.exec()
+                    return
+                self.menu_changed.emit(label)
+                self.menu_clicked.emit(label)
+        return handler
+
+    def _make_logout_handler(self):
+        def handler(event):
+            if event.button() == Qt.MouseButton.LeftButton:
+                self.logout_clicked.emit()
+        return handler
+
 
 # Topbar
 class Topbar(QFrame):
     def __init__(self, user=None, parent=None):
         super().__init__(parent)
         self.user = user
-        self._drag_pos = None
         self.setFixedHeight(70)
         self.setStyleSheet("background:transparent; border:none;")
 
@@ -548,22 +715,6 @@ class Topbar(QFrame):
         lay.addSpacing(3)
         lay.addWidget(info_col)
 
-    def mousePressEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton:
-            self._drag_pos = (
-                event.globalPosition().toPoint()
-                - self.window().frameGeometry().topLeft()
-            )
-            event.accept()
-
-    def mouseMoveEvent(self, event):
-        if event.buttons() == Qt.MouseButton.LeftButton and self._drag_pos:
-            self.window().move(event.globalPosition().toPoint() - self._drag_pos)
-            event.accept()
-
-    def mouseReleaseEvent(self, event):
-        self._drag_pos = None
-
 
 # Dashboard Window
 class DashboardWindow(GradientBackground):
@@ -572,11 +723,12 @@ class DashboardWindow(GradientBackground):
         self.user = user
         self.session = session
         self.on_logout = on_logout
+        self._target_window = None
+        self.pencapaian_window = None
+        self.defect_window = None
+        self.input_window = None
         self.dashboard_service = DashboardService()
         self.setWindowTitle("SiMonPro - Dashboard")
-        self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self._drag_pos = None
         self.init_ui()
         self.load_data()
 
@@ -588,10 +740,12 @@ class DashboardWindow(GradientBackground):
         root.setSpacing(0)
 
         # Sidebar
-        self.sidebar = Sidebar()
-        self.sidebar.logout_clicked.connect(self.on_logout)
+        self.sidebar = Sidebar(user=self.user)
         self.sidebar.menu_changed.connect(self.navigate_to)
         self.sidebar.menu_changed.connect(self.sidebar.set_active)
+        self.sidebar.menu_clicked.connect(self._handle_menu_clicked)
+        if self.on_logout:
+            self.sidebar.logout_clicked.connect(self.on_logout)
         root.addWidget(self.sidebar)
 
         # Stacked pages
@@ -686,18 +840,74 @@ class DashboardWindow(GradientBackground):
             on_logout=self.on_logout,
             embedded=True,
         )
+        # Page 2 — Target
+        self.target_page = TargetWindow(
+            user=self.user,
+            session=self.session,
+            on_logout=self.on_logout,
+            embedded=True,
+        )
+        # Page 3 — Defect
+        self.defect_page = DefectWindow(
+            user=self.user,
+            session=self.session,
+            on_logout=self.on_logout,
+            embedded=True,
+        )
+        # Page 4 — Input Produksi
+        self.input_page = InputProduksiWindow(
+            user=self.user,
+            session=self.session,
+            on_logout=self.on_logout,
+            embedded=True,
+        )
+        # Page 5 — Pencapaian
+        self.pencapaian_page = PencapaianWindow(
+            user=self.user,
+            session=self.session,
+            on_logout=self.on_logout,
+            embedded=True,
+        )
+        # Page 6 — Laporan
+        self.laporan_page = LaporanWindow(
+            user=self.user,
+            session=self.session,
+            on_logout=self.on_logout,
+            embedded=True,
+        )
         self.pages.addWidget(dashboard_page)
         self.pages.addWidget(self.produk_page)
+        self.pages.addWidget(self.target_page)
+        self.pages.addWidget(self.defect_page)
+        self.pages.addWidget(self.input_page)
+        self.pages.addWidget(self.pencapaian_page)
+        self.pages.addWidget(self.laporan_page)
 
         root.addWidget(self.pages)
 
     def navigate_to(self, label):
         if label == "Produk":
             self.pages.setCurrentIndex(1)
-        else:
-            self.pages.setCurrentIndex(0)
-            if label == "Dashboard":
-                self.load_data()
+            return
+        if label == "Target":
+            self.pages.setCurrentIndex(2)
+            return
+        if label == "Defect":
+            self.pages.setCurrentIndex(3)
+            return
+        if label == "Input Produksi":
+            self.pages.setCurrentIndex(4)
+            return
+        if label == "Pencapaian":
+            self.pages.setCurrentIndex(5)
+            return
+        if label == "Laporan":
+            self.pages.setCurrentIndex(6)
+            return
+
+        self.pages.setCurrentIndex(0)
+        if label == "Dashboard":
+            self.load_data()
 
     def load_data(self):
         try:
@@ -725,9 +935,52 @@ class DashboardWindow(GradientBackground):
             self.bar_chart.set_data(
                 charts["labels"], charts["target"], charts["actual"]
             )
-            self.line_chart.set_data(charts["labels"], charts["defect"])
+            self.line_chart.set_data(charts["labels"], charts["defect"], charts["actual"])
         except Exception as e:
             print(f"[Dashboard] Gagal memuat data: {e}")
+
+    def _handle_menu_clicked(self, label):
+        if label in (
+            "Dashboard",
+            "Produk",
+            "Target",
+            "Pencapaian",
+            "Defect",
+            "Input Produksi",
+            "Laporan",
+        ):
+            self.navigate_to(label)
+
+    def _navigate_from_child(self, label):
+        if self.pencapaian_window:
+            self.pencapaian_window.close()
+            self.pencapaian_window = None
+        if self.defect_window:
+            self.defect_window.close()
+            self.defect_window = None
+        self.showMaximized()
+        self.raise_()
+        self.activateWindow()
+        self.navigate_to(label)
+
+    def _show_dashboard(self):
+        if self.pencapaian_window:
+            self.pencapaian_window.close()
+            self.pencapaian_window = None
+        if self.defect_window:
+            self.defect_window.close()
+            self.defect_window = None
+        self.showMaximized()
+
+    def _handle_child_logout(self):
+        if self.pencapaian_window:
+            self.pencapaian_window.close()
+            self.pencapaian_window = None
+        if self.defect_window:
+            self.defect_window.close()
+            self.defect_window = None
+        if self.on_logout:
+            self.on_logout()
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Escape:

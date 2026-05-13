@@ -16,6 +16,7 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMenu,
     QPushButton,
     QScrollArea,
     QSizePolicy,
@@ -28,8 +29,8 @@ from src.views.KategoriView import EditKategoriDialog
 from src.views.TambahProduk import TambahProdukDialog
 from src.views.EditProduk import EditProdukDialog
 from src.database.db_connection import get_db
-from src.services.ProdukService import ProdukService
 from src.services.KategoriService import KategoriService
+from src.services.ProdukService import ProdukService
 from src.models.Produk import Produk
 from src.utils.image_utils import load_product_pixmap
 
@@ -184,18 +185,18 @@ class Sidebar(QFrame):
     ]
 
     ACTIVE_STYLE = """
-        QFrame {
+        QFrame#menuBtn {
             background: #9CD5FF;
             border-radius: 10px;
             border: none;
         }
     """
     INACTIVE_STYLE = """
-        QFrame {
+        QFrame#menuBtn {
             background: transparent;
             border: none;
         }
-        QFrame:hover {
+        QFrame#menuBtn:hover {
             background: rgba(156,213,255,0.12);
             border-radius: 10px;
         }
@@ -204,8 +205,9 @@ class Sidebar(QFrame):
     logout_clicked = pyqtSignal()
     menu_changed = pyqtSignal(str)
 
-    def __init__(self, parent=None):
+    def __init__(self, user=None, parent=None):
         super().__init__(parent)
+        self.user = user
         self.setFixedWidth(230)
         self.setStyleSheet("QFrame { background:#355872; border:none; }")
         self._menu_btns = {}
@@ -250,11 +252,7 @@ class Sidebar(QFrame):
         for icon_name, label in self.MENU:
             btn = self._menu_btn(icon_name, label)
             self._menu_btns[label] = btn
-            btn.mousePressEvent = lambda event, lbl=label: (
-                self.menu_changed.emit(lbl)
-                if event.button() == Qt.MouseButton.LeftButton
-                else None
-            )
+            btn.mousePressEvent = self._make_menu_handler(label)
             lay.addWidget(btn)
             lay.addSpacing(6)
 
@@ -276,6 +274,8 @@ class Sidebar(QFrame):
             icon_name = next(
                 (i for i, label_text in self.MENU if label_text == lbl), None
             )
+            is_restricted = self.user and self.user.role == "owner" and lbl in ["Target", "Input Produksi"]
+            
             if lbl == label:
                 btn.setStyleSheet(self.ACTIVE_STYLE)
                 ico_color = "#355872"
@@ -283,9 +283,14 @@ class Sidebar(QFrame):
                 txt_weight = "700"
             else:
                 btn.setStyleSheet(self.INACTIVE_STYLE)
-                ico_color = "#F7F8F0"
-                txt_color = "#F7F8F0"
+                if is_restricted:
+                    ico_color = "rgba(247, 248, 240, 0.4)"
+                    txt_color = "rgba(247, 248, 240, 0.4)"
+                else:
+                    ico_color = "#F7F8F0"
+                    txt_color = "#F7F8F0"
                 txt_weight = "600"
+                
             row_lay = btn.layout()
             ico_lbl = row_lay.itemAt(0).widget()
             txt_lbl = row_lay.itemAt(1).widget()
@@ -297,12 +302,20 @@ class Sidebar(QFrame):
 
     def _menu_btn(self, icon_name, label):
         btn = QFrame()
+        btn.setObjectName("menuBtn")
         btn.setFixedHeight(44)
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         btn.setStyleSheet(self.INACTIVE_STYLE)
 
-        ico_color = "#F7F8F0"
-        txt_color = "#F7F8F0"
+        is_restricted = self.user and self.user.role == "owner" and label in ["Target", "Input Produksi"]
+        
+        if is_restricted:
+            ico_color = "rgba(247, 248, 240, 0.4)"
+            txt_color = "rgba(247, 248, 240, 0.4)"
+        else:
+            ico_color = "#F7F8F0"
+            txt_color = "#F7F8F0"
+        
         txt_weight = "600"
 
         row = QHBoxLayout(btn)
@@ -326,12 +339,23 @@ class Sidebar(QFrame):
 
         return btn
 
+    def _make_menu_handler(self, label):
+        def handler(event):
+            if event.button() == Qt.MouseButton.LeftButton:
+                if self.user and self.user.role == "owner" and label in ["Target", "Input Produksi"]:
+                    from src.views.ownerview import OwnerPopup
+                    popup = OwnerPopup(self.parent())
+                    popup.show_message("Owner tidak memiliki akses untuk menu ini!")
+                    popup.exec()
+                    return
+                self.menu_changed.emit(label)
+        return handler
+
 
 class Topbar(QFrame):
     def __init__(self, user=None, parent=None):
         super().__init__(parent)
         self.user = user
-        self._drag_pos = None
         self.setFixedHeight(70)
         self.setStyleSheet("background:transparent; border:none;")
 
@@ -370,22 +394,6 @@ class Topbar(QFrame):
         lay.addWidget(user_ico)
         lay.addSpacing(3)
         lay.addWidget(info_col)
-
-    def mousePressEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton:
-            self._drag_pos = (
-                event.globalPosition().toPoint()
-                - self.window().frameGeometry().topLeft()
-            )
-            event.accept()
-
-    def mouseMoveEvent(self, event):
-        if event.buttons() == Qt.MouseButton.LeftButton and self._drag_pos:
-            self.window().move(event.globalPosition().toPoint() - self._drag_pos)
-            event.accept()
-
-    def mouseReleaseEvent(self, event):
-        self._drag_pos = None
 
 
 class SearchBar(QFrame):
@@ -503,6 +511,26 @@ class Toolbar(QFrame):
 
 class FilterBar(QFrame):
     urutkan_clicked = pyqtSignal()
+    kategori_changed = pyqtSignal(int)
+
+    _MENU_STYLE = """
+        QMenu {
+            border: 1px solid #355872;
+            border-radius: 10px;
+            background: #F7F8F0;
+            padding: 6px;
+        }
+        QMenu::item {
+            padding: 8px 20px 8px 10px;
+            border-radius: 6px;
+            font-size: 14px;
+            color: #355872;
+        }
+        QMenu::item:selected {
+            background-color: #9CD5FF;
+            color: #355872;
+        }
+    """
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -540,8 +568,34 @@ class FilterBar(QFrame):
         self.btn_urutkan = _filter_btn("mdi.sort-ascending", "Urutkan")
         self.btn_urutkan.clicked.connect(self.urutkan_clicked.emit)
         lay.addWidget(self.btn_urutkan)
-        lay.addWidget(_filter_btn("mdi.filter-outline", "Kelompokkan"))
+
+        # Tombol Kelompokkan dengan popup menu
+        self.btn_kelompokkan = _filter_btn("mdi.filter-outline", "Kelompokkan")
+        lay.addWidget(self.btn_kelompokkan)
+
+        # Popup menu untuk kategori (dimunculkan saat klik tombol)
+        self.menu_kategori = QMenu(self.btn_kelompokkan)
+        self.menu_kategori.setStyleSheet(self._MENU_STYLE)
+        self.btn_kelompokkan.setMenu(self.menu_kategori)
+
         lay.addStretch()
+
+    def _show_kategori_menu(self):
+        """Tampilkan popup menu kategori di bawah tombol."""
+        # Posisikan menu tepat di bawah tombol
+        btn_pos = self.btn_kelompokkan.mapToGlobal(self.btn_kelompokkan.rect().bottomLeft())
+        self.menu_kategori.move(btn_pos)
+        self.menu_kategori.show()
+
+    def set_kategori_list(self, kategori_list):
+        """Mengisi popup menu dengan daftar kategori."""
+        self.menu_kategori.clear()
+        for kid, nama in kategori_list:
+            self.menu_kategori.addAction(nama, lambda checked, k=kid: self._on_kategori_selected(k))
+
+    def _on_kategori_selected(self, kategori_id):
+        """Dipanggil ketika user memilih kategori dari menu."""
+        self.kategori_changed.emit(kategori_id)
 
 
 class ProductGrid(QWidget):
@@ -596,26 +650,30 @@ class ProdukWindow(GradientBackground):
         self.session = session
         self.on_logout = on_logout
         self.embedded = embedded
-        self._drag_pos = None
 
         # Inisialisasi service untuk mengambil data produk dari database
         db = get_db()
         self._produk_service = ProdukService(db)
+        self._kategori_controller = KategoriController(session)
+        self._selected_kategori_id = None
 
         if not embedded:
             self.setWindowTitle("SiMonPro - Kelola Data Produk")
-            self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
-            self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 
         self.init_ui()
         self.load_produk()
 
-    def load_produk(self, query: str | None = None):
+    def load_produk(self, query: str | None = None, kategori_id: int | None = None):
         try:
             if query and query.strip():
                 produk_list = self._produk_service.cari_produk(query.strip())
             else:
                 produk_list = self._produk_service.get_daftar_produk()
+
+            # Filter berdasarkan kategori jika dipilih
+            if kategori_id is not None:
+                produk_list = [p for p in produk_list if p.kategori_id == kategori_id]
+
             if getattr(self, '_sort_descending', False):
                 produk_list.reverse()
             self.product_grid.set_products(produk_list)
@@ -624,11 +682,24 @@ class ProdukWindow(GradientBackground):
 
     def _toggle_sort(self):
         self._sort_descending = not getattr(self, '_sort_descending', False)
-        self.load_produk()
+        self.load_produk(kategori_id=self._selected_kategori_id)
+
+    def _load_kategori_options(self):
+        """Memuat daftar kategori dari database ke dropdown."""
+        try:
+            kategori_list = self._kategori_controller.get_all_kategori()
+            self.filter_bar.set_kategori_list(kategori_list)
+        except Exception as e:
+            print(f"[ProdukWindow] Gagal memuat kategori: {e}")
+
+    def _on_kategori_changed(self, kategori_id):
+        """Dipanggil ketika user memilih kategori dari dropdown."""
+        self._selected_kategori_id = kategori_id
+        self.load_produk(kategori_id=kategori_id)
 
     def _on_search_changed(self, text: str):
         """Pencarian realtime saat user mengetik di search box."""
-        self.load_produk(query=text)
+        self.load_produk(query=text, kategori_id=self._selected_kategori_id)
 
     def init_ui(self):
         root = QHBoxLayout(self)
@@ -637,8 +708,9 @@ class ProdukWindow(GradientBackground):
 
         # Sidebar hanya dirender saat jendela mandiri
         if not self.embedded:
-            sidebar = Sidebar()
-            sidebar.logout_clicked.connect(self.on_logout)
+            sidebar = Sidebar(user=self.user)
+            if self.on_logout:
+                sidebar.logout_clicked.connect(self.on_logout)
             sidebar.menu_changed.connect(self.navigate_to)
             root.addWidget(sidebar)
 
@@ -662,6 +734,8 @@ class ProdukWindow(GradientBackground):
         sticky_lay.addWidget(self.toolbar)
         self.filter_bar = FilterBar()
         self.filter_bar.urutkan_clicked.connect(self._toggle_sort)
+        self.filter_bar.kategori_changed.connect(self._on_kategori_changed)
+        self._load_kategori_options()
         sticky_lay.addWidget(self.filter_bar)
         c_lay.addWidget(sticky)
 
@@ -685,60 +759,91 @@ class ProdukWindow(GradientBackground):
         root.addWidget(content)
 
     def _on_edit_kategori(self):
+        if self.user and self.user.role == "owner":
+            from src.views.ownerview import OwnerPopup
+            popup = OwnerPopup(self)
+            popup.show_message("Owner tidak memiliki akses untuk mengedit kategori!")
+            popup.exec()
+            return
+
         if not self.session:
             return
 
-        try:
-            dialog = EditKategoriDialog(parent=self)
-            controller = KategoriController(self.session)
-            controller.set_viewer(dialog)
+        dialog = EditKategoriDialog(parent=self)
+        controller = KategoriController(self.session)
+        controller.set_viewer(dialog)
 
-            dialog.simpanClicked.connect(controller.submit_update_kategori)
-            dialog.hapusClicked.connect(controller.submit_hapus_kategori)
-            dialog.tambahClicked.connect(controller.submit_tambah_kategori)
-            dialog.refreshRequested.connect(controller.refresh_kategori_list)
+        dialog.simpanClicked.connect(controller.submit_update_kategori)
+        dialog.hapusClicked.connect(controller.submit_hapus_kategori)
+        dialog.tambahClicked.connect(controller.submit_tambah_kategori)
 
-            controller.request_edit_kategori()
-        except Exception as e:
-            from PyQt6.QtWidgets import QMessageBox
-
-            QMessageBox.critical(self, "Error", f"Gagal membuka dialog kategori:\n{e}")
+        controller.request_edit_kategori()
+        if dialog.exec():
+            self.load_produk()
+            self._load_kategori_options()
 
     def _on_tambah_produk(self):
+        if self.user and self.user.role == "owner":
+            from src.views.ownerview import OwnerPopup
+            popup = OwnerPopup(self)
+            popup.show_message("Owner tidak memiliki akses untuk menambah produk!")
+            popup.exec()
+            return
+
+        kode_produk = "Akan tergenerate otomatis"
+        kategori_list = []
         try:
-            next_kode = self._produk_service.get_next_kode_produk()
-
-            # Ambil daftar kategori dari database
-            kategori_service = KategoriService()
-            daftar_kategori = kategori_service.getDaftarKategori()
-            categories = [k.nama_kategori for k in daftar_kategori]
-
-            dialog = TambahProdukDialog(
-                kode_produk=next_kode,
-                categories=categories,
-                parent=self
-            )
-            dialog.exec()
-            self.load_produk()
+            kode_produk = self._produk_service.get_next_kode_produk()
         except Exception as e:
-            from PyQt6.QtWidgets import QMessageBox
-
-            QMessageBox.critical(self, "Error", f"Gagal membuka dialog tambah produk:\n{e}")
-
-    def _on_edit_produk(self, produk):
+            print(f"[ProdukWindow] Gagal generate kode produk: {e}")
         try:
-            dialog = EditProdukDialog(produk=produk, parent=self)
-            dialog.exec()
-            self.load_produk()
+            kategori_list = self._produk_service.get_daftar_kategori()
         except Exception as e:
-            from PyQt6.QtWidgets import QMessageBox
+            print(f"[ProdukWindow] Gagal memuat kategori: {e}")
 
-            QMessageBox.critical(self, "Error", f"Gagal membuka dialog edit produk:\n{e}")
+        dialog = TambahProdukDialog(
+            kode_produk=kode_produk,
+            categories=kategori_list,
+            user=self.user,
+            session=self.session,
+            parent=self,
+        )
+        if dialog.exec():
+            self.load_produk()
+
+    def _on_edit_produk(self, produk: Produk):
+        if self.user and self.user.role == "owner":
+            from src.views.ownerview import OwnerPopup
+            popup = OwnerPopup(self)
+            popup.show_message("Owner tidak memiliki akses untuk mengedit produk!")
+            popup.exec()
+            return
+
+        if not produk:
+            return
+
+        kategori_list = []
+        try:
+            kategori_list = self._produk_service.get_daftar_kategori()
+        except Exception as e:
+            print(f"[ProdukWindow] Gagal memuat kategori: {e}")
+
+        dialog = EditProdukDialog(
+            produk=produk,
+            categories=kategori_list,
+            parent=self
+        )
+        if dialog.exec():
+            self.load_produk()
 
     def navigate_to(self, label):
         # Saat embedded, delegasikan ke DashboardWindow via parent
-        if self.embedded and hasattr(self.parent(), "navigate_to"):
-            self.parent().navigate_to(label)
+        if self.embedded:
+            parent = self.parent()
+            while parent and not hasattr(parent, "navigate_to"):
+                parent = parent.parent()
+            if parent and hasattr(parent, "navigate_to"):
+                parent.navigate_to(label)
 
     def keyPressEvent(self, event):
         if not self.embedded and event.key() == Qt.Key.Key_Escape:

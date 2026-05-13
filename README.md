@@ -21,6 +21,23 @@ Pastikan perangkat telah memiliki:
 
 ### Langkah Instalasi
 
+#### ⚡ Quick Setup (Recommended)
+
+Untuk instalasi otomatis (Python, Docker, dependensi menggunakan **uv**, dan shortcut desktop), jalankan skrip berikut:
+
+- **Windows**: Jalankan PowerShell sebagai Administrator:
+  ```powershell
+  .\install.ps1
+  ```
+- **Linux**: Jalankan di terminal:
+  ```bash
+  chmod +x install.sh && ./install.sh
+  ```
+
+---
+
+#### Manual Setup
+
 1. **Klon repositori proyek**
 
    ```bash
@@ -36,21 +53,15 @@ Pastikan perangkat telah memiliki:
    docker compose up -d
    ```
 
-   Container ini akan secara otomatis menjalankan skema basis data (`database/init.sql`) dan data dummy (`database/dummy.sql`) pada pertama kali dijalankan.
+3. **Instal dependensi Python (Menggunakan uv)**
 
-3. **Instal dependensi Python**
-
-   Jika menggunakan **pip**:
-
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-   Atau jika menggunakan **uv**:
+   Pastikan Anda telah menginstal [uv](https://github.com/astral-sh/uv). Kemudian jalankan:
 
    ```bash
    uv sync
    ```
+
+   *(Opsional: Jika tidak menggunakan uv, gunakan `pip install -r requirements.txt`)*
 
 4. **Konfigurasi koneksi basis data (opsional)**
 
@@ -92,9 +103,13 @@ Setelah seluruh prasyarat terpenuhi dan instalasi selesai, ikuti langkah-langkah
 
 2. **Jalankan aplikasi**
 
+   Gunakan **uv** untuk menjalankan aplikasi:
+
    ```bash
-   python main.py
+   uv run python main.py
    ```
+
+   *(Atau `python main.py` jika virtual environment sudah aktif)*
 
 3. **Login ke aplikasi**
 
@@ -248,3 +263,38 @@ Tabel untuk menyimpan data sesi login pengguna.
 - Aplikasi ini menggunakan arsitektur berbasis Model-View-Controller (MVC) untuk memisahkan logika bisnis, antarmuka pengguna, dan pengontrol alur kerja.
 - Semua koneksi ke basis data dikelola melalui kelas singleton `Database` yang terdapat pada modul `src/database/db_connection.py` untuk memastikan efisiensi koneksi.
 - Data dummy yang disediakan mencakup periode Januari hingga April 2025 untuk keperluan pengujian dan demonstrasi fitur dashboard.
+
+---
+
+## 🌟 Fitur Bonus yang Diimplementasikan
+
+Aplikasi ini telah mengimplementasikan seluruh poin bonus yang diminta dalam spesifikasi:
+
+### 1. Unit Testing (Bonus)
+- **Framework**: `pytest`
+- **Cakupan**: Mencakup seluruh layer Service dan Controller.
+- **Lokasi**: Folder `tests/`
+- **Cara Menjalankan**:
+  ```bash
+  xvfb-run -a uv run pytest tests/ -v
+  ```
+- **Catatan**: Seluruh logika bisnis pada `LaporanService`, `ProdukService`, dan `AuthService` telah diuji secara menyeluruh.
+
+### 2. Performance Optimization (Bonus)
+- **Tool**: `cProfile`
+- **Fitur yang Dioptimasi**: Dashboard Monitoring dan Generasi Laporan.
+- **Hasil**: Laporan performa tersedia di `doc/performance_report.txt`.
+- **Identifikasi**: Database query diidentifikasi sebagai komponen paling memakan waktu, sehingga penggunaan singleton database connection dioptimalkan untuk meminimalkan overhead.
+- **Cara Menjalankan Profiling**:
+  ```bash
+  PYTHONPATH=. uv run python scripts/profile_dashboard.py
+  ```
+
+### 3. CI/CD (Bonus)
+- **Tool**: GitHub Actions
+- **Workflow**: `.github/workflows/ci.yml`
+- **Otomatisasi**:
+  - **Linting**: Pengecekan kualitas kode otomatis dengan `Ruff`.
+  - **Testing**: Menjalankan seluruh test suite pada setiap Pull Request dan Push ke branch utama.
+  - **Delivery**: Otomatis membuat paket rilis (`.zip`) dan checksum (`.sha256`) setiap kali ada tag versi baru (`v*`).
+

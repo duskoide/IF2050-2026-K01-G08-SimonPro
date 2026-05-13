@@ -13,9 +13,12 @@ dependencies = [
     "python-dotenv>=1.2.2",
     "qtawesome>=1.4.2",
     "reportlab>=4.5.0",
+    "scipy>=1.15.3",
 ]
 
 [dependency-groups]
 dev = [
     "pytest>=9.0.3",
+    "pytest-cov>=6.0.0",
+    "ruff>=0.9.9",
 ]

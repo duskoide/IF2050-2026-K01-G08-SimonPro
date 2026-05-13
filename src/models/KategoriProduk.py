@@ -33,12 +33,17 @@ class KategoriProduk:
     # simpan perubahan
     @staticmethod
     def simpanPerubahan(db, kategori_id: int, nama_baru: str) -> None:
-        db.execute_update(
-            "UPDATE kategori_produk "
-            "SET nama_kategori = %s "
-            "WHERE kategori_id = %s",
-            (nama_baru, kategori_id),
+        old = db.execute_query(
+            "SELECT nama_kategori FROM kategori_produk WHERE kategori_id = %s",
+            (kategori_id,),
         )
+        if not old:
+            return
+        with db:
+            db.execute_update(
+                "UPDATE kategori_produk SET nama_kategori = %s WHERE kategori_id = %s",
+                (nama_baru, kategori_id),
+            )
     
     # Insert
     @staticmethod
@@ -63,6 +68,20 @@ class KategoriProduk:
             "DELETE FROM kategori_produk WHERE kategori_id = %s",
             (kategori_id,),
         )
+
+    @staticmethod
+    def hasProduk(db, kategori_id: int) -> bool:
+        nama = db.execute_query(
+            "SELECT nama_kategori FROM kategori_produk WHERE kategori_id = %s",
+            (kategori_id,),
+        )
+        if not nama:
+            return False
+        rows = db.execute_query(
+            "SELECT 1 FROM produk WHERE nama_kategori = %s LIMIT 1",
+            (nama[0]["nama_kategori"],),
+        )
+        return len(rows) > 0
 
     @staticmethod
     def getAll(db) -> list["KategoriProduk"]:

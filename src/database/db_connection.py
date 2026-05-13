@@ -136,7 +136,10 @@ class Database:
         """Run a SELECT-style query and return a list of dict rows."""
         with self.connection.cursor() as cursor:
             cursor.execute(sql, params)
-            return cursor.fetchall()  # type: ignore[return-value]
+            rows = cursor.fetchall()  # type: ignore[return-value]
+            if not self._in_context:
+                self.connection.commit()
+            return rows
 
     def execute_update(
         self,

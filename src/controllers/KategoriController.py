@@ -62,7 +62,7 @@ class KategoriController:
     def submit_hapus_kategori(self, kategori_id):
         if not self.service.hapusKategori(kategori_id):
             if self.viewer:
-                self.viewer.tampilkan_error("Kategori tidak bisa dihapus.")
+                self.viewer.tampilkan_error("Kategori tidak bisa dihapus karena masih memiliki produk.")
             return False
 
         if self.viewer:
