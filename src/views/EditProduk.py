@@ -30,6 +30,7 @@ from src.utils.image_utils import pick_image_file, save_image_to_app
 from src.controllers.ProdukController import ProdukController
 from src.services.ProdukService import ProdukService
 from src.database.db_connection import get_db
+from src.views.messageview import SuccessPopup
 
 
 # ── Gradient Card Widget ───────────────────────────────────────────────────────
@@ -102,7 +103,7 @@ class EditProdukDialog(OverlayDialog):
     Card EditProduk di-stack di atasnya sebagai child widget.
     """
 
-    def __init__(self, produk=None, categories: list[str] = None, parent=None):
+    def __init__(self, produk=None, categories: list[str] = None, user=None, session=None, parent=None):
         super().__init__(parent)
 
         main_layout = QVBoxLayout(self)
@@ -112,6 +113,8 @@ class EditProdukDialog(OverlayDialog):
         self.card = EditProdukCard(
             produk=produk,
             categories=categories,
+            user=user,
+            session=session,
             parent=self
         )
         self.card.setFixedSize(650, 610)
@@ -298,10 +301,13 @@ class EditProdukCard(GradientCard):
         db = get_db()
         produk_service = ProdukService(db)
         self.controller = ProdukController(produk_service)
-
+        self.controller.set_on_error(self._tampilkan_error_msg)
 
         self._init_ui()
         self._populate_data()
+
+    def _tampilkan_error_msg(self, msg: str):
+        QMessageBox.critical(self, "Error", msg)
 
     # ── Helper Label ────────────────────────────────────────────────────────
     @staticmethod
@@ -527,6 +533,7 @@ class EditProdukCard(GradientCard):
 
         # Koneksi validasi saat simpan diklik
         self.btn_simpan.clicked.connect(self._on_simpan_clicked)
+        self.btn_hapus.clicked.connect(self._on_hapus_clicked)
 
         # Reset error otomatis saat user berinteraksi
         self.input_nama.textChanged.connect(
@@ -610,10 +617,63 @@ class EditProdukCard(GradientCard):
         if not ada_error:
             self._do_simpan()
 
+    def _tampilkan_success(self, msg: str):
+        popup_parent = self.window().parentWidget().window() if self.window().parentWidget() else self.window()
+        if not hasattr(self, "_success_popup") or self._success_popup is None:
+            self._success_popup = SuccessPopup(parent=popup_parent)
+        else:
+            self._success_popup.setParent(popup_parent)
+        self._success_popup.show_message(msg)
+
     def _do_simpan(self):
         """Logika penyimpanan aktual dipanggil setelah validasi lulus."""
-        # TODO: implementasi simpan ke database / model
-        pass
+        if not self.produk or not self.user:
+            QMessageBox.critical(self, "Error", "Data produk atau user tidak lengkap.")
+            return
+
+        nama_produk = self.input_nama.text()
+        deskripsi_produk = self.input_deskripsi.text()
+        nama_kategori = self.combo_kategori.currentText()
+        gambar_path = self.get_selected_image_relpath()
+
+        updated_produk = self.controller.submit_update_produk(
+            user_role=self.user.role,
+            produk_id=self.produk.produk_id,
+            nama_produk=nama_produk,
+            deskripsi_produk=deskripsi_produk,
+            satuan=self.produk.satuan,  # Asumsi satuan tidak diubah di form ini
+            gambar=gambar_path,
+            status_aktif=self.produk.status_aktif, # Asumsi status aktif tidak diubah
+            nama_kategori=nama_kategori
+        )
+
+        if updated_produk:
+            self._tampilkan_success(f"Produk '{updated_produk.nama_produk}' berhasil diperbarui")
+            self.parent().accept() # Close the dialog
+        else:
+            pass
+
+    def _on_hapus_clicked(self):
+        if not self.produk or not self.user:
+            QMessageBox.critical(self, "Error", "Data produk atau user tidak lengkap.")
+            return
+
+        reply = QMessageBox.question(
+            self,
+            "Konfirmasi Hapus",
+            f"Apakah Anda yakin ingin menghapus produk '{self.produk.nama_produk}'?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+
+        if reply == QMessageBox.StandardButton.Yes:
+            success = self.controller.submit_nonaktifkan_produk(
+                user_role=self.user.role,
+                produk_id=self.produk.produk_id
+            )
+            if success:
+                self._tampilkan_success(f"Produk '{self.produk.nama_produk}' berhasil dihapus")
+                self.parent().accept()
 
     # ── Helper: clear error per field ────────────────────────────────────────
     def _clear_error_line(self, widget: QLineEdit, err_lbl: QLabel):
@@ -648,31 +708,4 @@ if __name__ == "__main__":
     dialog.exec()
 
     sys.exit(app.exec())
-r_combo(self, combo: QComboBox, err_lbl: QLabel):
-        if combo.currentIndex() != 0:
-            combo.setStyleSheet(self._COMBO_SS)
-            err_lbl.setVisible(False)
 
-    def _clear_error_frame(self, frame: QFrame, err_lbl: QLabel):
-        frame.setStyleSheet(self._FRAME_NORMAL_SS)
-        err_lbl.setVisible(False)
-
-    def get_selected_image_relpath(self) -> str | None:
-        if self._selected_image_path:
-            return save_image_to_app(self._selected_image_path)
-        if self.produk and self.produk.gambar:
-            return self.produk.gambar
-        return None
-
-
-# ── Entry Point ────────────────────────────────────────────────────────────────
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    app.setStyle("Fusion")
-
-    dialog = EditProdukDialog(
-        categories=["Atasan", "Bawahan", "Pakaian Dalam"]
-    )
-    dialog.exec()
-
-    sys.exit(app.exec())

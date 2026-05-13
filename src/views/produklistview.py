@@ -717,6 +717,8 @@ class ProdukWindow(GradientBackground):
         dialog = TambahProdukDialog(
             kode_produk=kode_produk,
             categories=kategori_list,
+            user=self.user,
+            session=self.session,
             parent=self,
         )
         if dialog.exec():

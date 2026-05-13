@@ -7,7 +7,7 @@ os.environ['QT_API'] = 'pyqt6'
 from PyQt6.QtWidgets import (
     QApplication, QDialog, QVBoxLayout, QHBoxLayout,
     QLabel, QComboBox, QLineEdit, QPushButton, QFrame,
-    QListView, QWidget, QGraphicsDropShadowEffect
+    QListView, QWidget, QGraphicsDropShadowEffect, QMessageBox
 )
 
 from PyQt6.QtCore import (Qt, QSize, QPoint)
@@ -24,6 +24,10 @@ from PyQt6.QtGui import (
 import qtawesome as qta
 
 from src.utils.image_utils import pick_image_file, save_image_to_app
+from src.controllers.ProdukController import ProdukController
+from src.services.ProdukService import ProdukService
+from src.database.db_connection import get_db
+from src.views.messageview import SuccessPopup
 
 
 # ── Gradient Card Widget ───────────────────────────────────────────────────────
@@ -96,7 +100,7 @@ class TambahProdukDialog(OverlayDialog):
     """
 
     # Ubah nilai alpha (0–255) untuk mengatur opacity overlay
-    def __init__(self, kode_produk: str = " ", categories: list[str] = None, parent=None):
+    def __init__(self, kode_produk: str = " ", categories: list[str] = None, user=None, session=None, parent=None):
         super().__init__(parent)
 
         main_layout = QVBoxLayout(self)
@@ -106,6 +110,8 @@ class TambahProdukDialog(OverlayDialog):
         self.card = TambahProdukCard(
             kode_produk=kode_produk,
             categories=categories,
+            user=user,
+            session=session,
             parent=self
         )
         self.card.setFixedSize(650, 640)
@@ -280,14 +286,24 @@ class TambahProdukCard(GradientCard):
         }
     """
 
-    def __init__(self, kode_produk: str = " ", categories: list[str] = None, parent=None):
+    def __init__(self, kode_produk: str = " ", categories: list[str] = None, user=None, session=None, parent=None):
         super().__init__(parent)
 
         self._kode_produk = kode_produk
+        self.user = user
+        self.session = session
         self._categories = categories or []
         self._selected_image_path: str | None = None
 
+        db = get_db()
+        produk_service = ProdukService(db)
+        self.controller = ProdukController(produk_service)
+        self.controller.set_on_error(self._tampilkan_error_msg)
+
         self._init_ui()
+
+    def _tampilkan_error_msg(self, msg: str):
+        QMessageBox.critical(self, "Error", msg)
 
     # ── Helper Label ──────────────────────────────────────────────────────────
     @staticmethod
@@ -560,10 +576,39 @@ class TambahProdukCard(GradientCard):
         if not ada_error:
             self._do_simpan()
 
+    def _tampilkan_success(self, msg: str):
+        popup_parent = self.window().parentWidget().window() if self.window().parentWidget() else self.window()
+        if not hasattr(self, "_success_popup") or self._success_popup is None:
+            self._success_popup = SuccessPopup(parent=popup_parent)
+        else:
+            self._success_popup.setParent(popup_parent)
+        self._success_popup.show_message(msg)
+
     def _do_simpan(self):
         """Logika penyimpanan aktual dipanggil setelah validasi lulus."""
-        # TODO: implementasi simpan ke database / model
-        pass
+        if not self.user:
+            QMessageBox.critical(self, "Error", "User tidak terautentikasi.")
+            return
+
+        nama_produk = self.input_nama.text()
+        deskripsi_produk = self.input_deskripsi.text()
+        nama_kategori = self.combo_kategori.currentText()
+        gambar_path = self.get_selected_image_relpath()
+
+        baru = self.controller.submit_tambah_produk(
+            user_role=self.user.role,
+            nama_produk=nama_produk,
+            deskripsi_produk=deskripsi_produk,
+            satuan="Pcs",  # Asumsi UI default
+            gambar=gambar_path,
+            nama_kategori=nama_kategori
+        )
+
+        if baru:
+            self._tampilkan_success(f"Produk '{baru.nama_produk}' berhasil ditambahkan")
+            self.parent().accept()
+        else:
+            pass # Error handling already done in controller via callbacks (or not, but we let it pass for now)
 
     # ── Helper: clear error per field ────────────────────────────────────────
     def _clear_error_line(self, widget: QLineEdit, err_lbl: QLabel):
