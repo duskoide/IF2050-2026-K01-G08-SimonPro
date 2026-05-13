@@ -39,12 +39,7 @@ class KategoriProduk:
         )
         if not old:
             return
-        nama_lama = old[0]["nama_kategori"]
         with db:
-            db.execute_update(
-                "UPDATE produk SET nama_kategori = %s WHERE nama_kategori = %s",
-                (nama_baru, nama_lama),
-            )
             db.execute_update(
                 "UPDATE kategori_produk SET nama_kategori = %s WHERE kategori_id = %s",
                 (nama_baru, kategori_id),

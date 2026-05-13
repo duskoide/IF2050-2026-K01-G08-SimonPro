@@ -106,8 +106,10 @@ if ($WithTestDeps) {
   Write-Log "Headless test deps are handled in CI on Linux. No extra Windows packages required."
 }
 
-Write-Log "Install complete."
-Write-Log "Next steps:"
-Write-Log "- docker compose up -d"
-Write-Log "- uv sync  (or: pip install -r requirements.txt)"
-Write-Log "- python main.py"
+Write-Log "Finalizing setup (uv sync & database)..."
+Set-Location $scriptDir
+& uv sync
+& docker compose up -d
+
+Write-Log "`nInstall complete!"
+Write-Log "You can now launch SiMonPro from your Start Menu or by running 'python main.py'."
