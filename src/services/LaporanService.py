@@ -11,7 +11,7 @@ from src.database.db_connection import get_db
 
 # sesuaiin lagih path HTML
 _TEMPLATE_PATH = os.path.join(
-    os.path.dirname(__file__), "..", "..", "templates", "laporan_produksi.html"
+    os.path.dirname(__file__), "..", "templates", "laporan_produksi.html"
 )
 
 
@@ -48,6 +48,7 @@ class LaporanService:
         pencapaian_produk  = self._get_pencapaian_per_produk(tanggal_awal, tanggal_akhir)
         defect_bulanan     = self._get_defect_bulanan(tanggal_awal, tanggal_akhir)
         defect_tipe        = self._get_defect_per_tipe(tanggal_awal, tanggal_akhir)
+        kendala_list       = self._get_kendala_produksi(tanggal_awal, tanggal_akhir)
 
         data_laporan = {
             "periode": {
@@ -60,6 +61,7 @@ class LaporanService:
             "pencapaian_produk":   pencapaian_produk,
             "defect_bulanan":      defect_bulanan,
             "defect_tipe":         defect_tipe,
+            "kendala_list":        kendala_list,
             "dicetak_oleh":        dicetak_oleh,
             "generated_at":        datetime.now().strftime("%d %B %Y %H:%M"),
         }
@@ -96,6 +98,7 @@ class LaporanService:
             "pencapaian_produk":  self._get_pencapaian_per_produk(tanggal_awal, tanggal_akhir),
             "defect_bulanan":     self._get_defect_bulanan(tanggal_awal, tanggal_akhir),
             "defect_tipe":        self._get_defect_per_tipe(tanggal_awal, tanggal_akhir),
+            "kendala_list":       self._get_kendala_produksi(tanggal_awal, tanggal_akhir),
             "dicetak_oleh":       dicetak_oleh,
             "generated_at":       datetime.now().strftime("%d %B %Y %H:%M"),
         }
@@ -110,7 +113,7 @@ class LaporanService:
             SELECT
                 COALESCE(SUM(ph.jumlah_aktual), 0)  AS total_aktual,
                 COUNT(DISTINCT ph.tanggal)           AS hari_kerja,
-                COUNT(DISTINCT ph.kode_produk)       AS jumlah_produk
+                COUNT(DISTINCT ph.produk_id)         AS jumlah_produk
             FROM produksi_harian ph
             WHERE ph.tanggal >= %s AND ph.tanggal <= %s
             """,
@@ -225,9 +228,9 @@ class LaporanService:
                 p.nama_produk,
                 COALESCE(SUM(ph.jumlah_aktual), 0) AS aktual
             FROM produk p
-            JOIN produksi_harian ph ON ph.kode_produk = p.kode_produk
+            JOIN produksi_harian ph ON ph.produk_id = p.produk_id
             WHERE ph.tanggal >= %s AND ph.tanggal <= %s
-            GROUP BY p.kode_produk, p.nama_produk
+            GROUP BY p.produk_id, p.nama_produk
             HAVING COALESCE(SUM(ph.jumlah_aktual), 0) > 0
             ORDER BY aktual DESC
             """,
@@ -254,16 +257,29 @@ class LaporanService:
         rows = self.db.execute_query(
             """
             SELECT
-                DATE_TRUNC('month', ph.tanggal)::date          AS bulan,
-                COALESCE(SUM(ph.jumlah_aktual), 0)             AS total_produksi,
-                COALESCE(SUM(dd.jumlah_defect), 0)             AS jumlah_defect
-            FROM produksi_harian ph
-            LEFT JOIN detail_defect dd ON dd.produksi_id = ph.produksi_id
-            WHERE ph.tanggal >= %s AND ph.tanggal <= %s
-            GROUP BY bulan
-            ORDER BY bulan
+                produksi.bulan,
+                produksi.total_produksi,
+                COALESCE(defect.jumlah_defect, 0) AS jumlah_defect
+            FROM (
+                SELECT
+                    DATE_TRUNC('month', tanggal)::date AS bulan,
+                    COALESCE(SUM(jumlah_aktual), 0)    AS total_produksi
+                FROM produksi_harian
+                WHERE tanggal >= %s AND tanggal <= %s
+                GROUP BY bulan
+            ) produksi
+            LEFT JOIN (
+                SELECT
+                    DATE_TRUNC('month', ph.tanggal)::date AS bulan,
+                    COALESCE(SUM(dd.jumlah_defect), 0)    AS jumlah_defect
+                FROM detail_defect dd
+                JOIN produksi_harian ph ON ph.produksi_id = dd.produksi_id
+                WHERE ph.tanggal >= %s AND ph.tanggal <= %s
+                GROUP BY bulan
+            ) defect ON defect.bulan = produksi.bulan
+            ORDER BY produksi.bulan
             """,
-            (tanggal_awal, tanggal_akhir),
+            (tanggal_awal, tanggal_akhir, tanggal_awal, tanggal_akhir),
         )
 
         result = []
@@ -291,9 +307,9 @@ class LaporanService:
                 td.nama_defect,
                 COALESCE(SUM(dd.jumlah_defect), 0) AS jumlah
             FROM tipe_defect td
-            LEFT JOIN detail_defect dd ON dd.defect_id = td.defect_id
-            LEFT JOIN produksi_harian ph ON ph.produksi_id = dd.produksi_id
-                AND ph.tanggal >= %s AND ph.tanggal <= %s
+            JOIN detail_defect dd ON dd.defect_id = td.defect_id
+            JOIN produksi_harian ph ON ph.produksi_id = dd.produksi_id
+            WHERE ph.tanggal >= %s AND ph.tanggal <= %s
             GROUP BY td.defect_id, td.nama_defect
             HAVING COALESCE(SUM(dd.jumlah_defect), 0) > 0
             ORDER BY jumlah DESC
@@ -314,15 +330,43 @@ class LaporanService:
             )
         return result
 
+    def _get_kendala_produksi(
+        self, tanggal_awal: date, tanggal_akhir: date
+    ) -> list[dict[str, Any]]:
+        """Ambil daftar kendala produksi yang tercatat."""
+        rows = self.db.execute_query(
+            """
+            SELECT 
+                ph.tanggal, 
+                p.nama_produk, 
+                ph.kendala_produksi,
+                ph.penanggung_jawab
+            FROM produksi_harian ph
+            JOIN produk p ON p.produk_id = ph.produk_id
+            WHERE ph.tanggal >= %s AND ph.tanggal <= %s
+              AND ph.kendala_produksi IS NOT NULL 
+              AND ph.kendala_produksi != ''
+            ORDER BY ph.tanggal DESC
+            """,
+            (tanggal_awal, tanggal_akhir),
+        )
+        return [
+            {
+                "tanggal": r["tanggal"].strftime("%d/%m/%Y"),
+                "produk": r["nama_produk"],
+                "kendala": r["kendala_produksi"],
+                "pj": r["penanggung_jawab"]
+            }
+            for r in rows
+        ]
+
     # ------------------------------------------------------------------
     # HTML Builder — mengisi placeholder di laporan_produksi.html
     # ------------------------------------------------------------------
 
     def _build_html(self, data: dict[str, Any]) -> str:
         """Load template HTML lalu isi semua placeholder {{...}}."""
-        template_path = os.path.normpath(
-            os.path.join(os.path.dirname(__file__), _TEMPLATE_PATH)
-        )
+        template_path = os.path.normpath(_TEMPLATE_PATH)
         with open(template_path, encoding="utf-8") as f:
             html = f.read()
 
@@ -343,26 +387,30 @@ class LaporanService:
         html = html.replace("{{total_defect}}",       f"{ringkasan['total_defect']:,}")
         html = html.replace("{{tingkat_defect}}",     str(ringkasan["defect_rate"]))
         html = html.replace("{{produksi_bersih}}",    f"{ringkasan['produksi_bersih']:,}")
+        html = html.replace("{{jumlah_produk}}",      str(ringkasan["jumlah_produk"]))
+        html = html.replace("{{hari_kerja}}",         str(ringkasan["hari_kerja"]))
 
         # ── Tabel pencapaian per bulan ──────────────────────────────────
         pencapaian_rows = ""
         for item in data["pencapaian_bulanan"]:
             efisiensi = item["efisiensi"]
             bar_width = min(efisiensi, 100)
+            status_class = "success" if efisiensi >= 100 else "warning"
+            status_text = "Tercapai" if efisiensi >= 100 else "Di bawah target"
+            
             pencapaian_rows += f"""
         <tr>
             <td>{item['periode']}</td>
             <td class="right">{item['target']:,}</td>
             <td class="right">{item['aktual']:,}</td>
-            <td class="center">{efisiensi}%</td>
+            <td class="center">
+                <span class="status-chip {status_class}">{efisiensi}%</span>
+            </td>
             <td>
                 <div class="progress-bg">
                     <div class="progress-fill" style="width:{bar_width}%"></div>
                 </div>
-                <div class="progress-label">
-                    <span>{efisiensi}%</span>
-                    <span>{'✔ Tercapai' if efisiensi >= 100 else '✘ Belum Tercapai'}</span>
-                </div>
+                <div class="progress-label">{status_text}</div>
             </td>
         </tr>"""
         html = html.replace("{{pencapaian_rows}}", pencapaian_rows)
@@ -371,10 +419,10 @@ class LaporanService:
         distribusi_items = ""
         for item in data["pencapaian_produk"]:
             distribusi_items += f"""
-        <div class="dist-item">
-            <div class="name">{item['nama_produk']}</div>
-            <div class="pct">{item['pct']}%</div>
-            <div class="total">{item['aktual']:,} unit</div>
+        <div class="dist-card">
+            <div class="dist-name">{item['nama_produk']}</div>
+            <div class="dist-value">{item['pct']}%</div>
+            <div class="dist-sub">{item['aktual']:,} unit</div>
         </div>"""
         html = html.replace("{{distribusi_items}}", distribusi_items)
 
@@ -389,17 +437,17 @@ class LaporanService:
         for item in data["defect_bulanan"]:
             pct = item["pct_defect"]
             if pct < 1:
-                badge = '<span class="defect-badge defect-low">Rendah</span>'
+                badge = '<span class="badge badge-low">Rendah</span>'
             elif pct < 3:
-                badge = '<span class="defect-badge defect-mid">Sedang</span>'
+                badge = '<span class="badge badge-mid">Sedang</span>'
             else:
-                badge = '<span class="defect-badge defect-high">Tinggi</span>'
+                badge = '<span class="badge badge-high">Tinggi</span>'
 
             defect_rows += f"""
         <tr>
             <td>{item['periode']}</td>
-            <td class="right">{item['jumlah_defect']:,}</td>
             <td class="right">{item['total_produksi']:,}</td>
+            <td class="right">{item['jumlah_defect']:,}</td>
             <td class="center">{pct}%</td>
             <td>{badge}</td>
         </tr>"""
@@ -414,14 +462,29 @@ class LaporanService:
         <tr>
             <td>{item['nama_defect']}</td>
             <td class="right">{item['jumlah']:,}</td>
-            <td class="center">{pct}%</td>
-            <td>
-                <div class="progress-bg">
+            <td class="center">
+                {pct}%
+                <div class="progress-bg small">
                     <div class="progress-fill" style="width:{bar_width}%"></div>
                 </div>
             </td>
         </tr>"""
         html = html.replace("{{defect_type_rows}}", defect_type_rows)
+
+        # ── Tabel kendala produksi ──────────────────────────────────────
+        kendala_rows = ""
+        if not data["kendala_list"]:
+            kendala_rows = '<tr><td colspan="4" class="center">Tidak ada kendala yang tercatat.</td></tr>'
+        else:
+            for k in data["kendala_list"]:
+                kendala_rows += f"""
+            <tr>
+                <td style="white-space:nowrap;">{k['tanggal']}</td>
+                <td style="font-weight:600;">{k['produk']}</td>
+                <td>{k['kendala']}</td>
+                <td style="font-size:0.9em;">{k['pj']}</td>
+            </tr>"""
+        html = html.replace("{{kendala_rows}}", kendala_rows)
 
         return html
 
@@ -498,28 +561,69 @@ class LaporanService:
 
         os.makedirs(output_dir, exist_ok=True)
 
-        filename = (
+        base_filename = (
             f"Laporan_Produksi_"
             f"{tanggal_awal.strftime('%Y%m%d')}_"
-            f"{tanggal_akhir.strftime('%Y%m%d')}.pdf"
+            f"{tanggal_akhir.strftime('%Y%m%d')}_"
+            f"{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         )
-        filepath = os.path.join(output_dir, filename)
+        filepath = self._unique_filepath(output_dir, base_filename, ".pdf")
+
+        template_dir = os.path.dirname(os.path.normpath(_TEMPLATE_PATH))
 
         try:
             from weasyprint import HTML  # type: ignore
-            HTML(string=html_content).write_pdf(filepath)
-        except ImportError:
-            # Fallback: simpan sebagai HTML untuk preview / debugging
-            html_path = filepath.replace(".pdf", "_preview.html")
-            with open(html_path, "w", encoding="utf-8") as f:
-                f.write(html_content)
-            filepath = html_path  # kembalikan path HTML
+            HTML(string=html_content, base_url=template_dir).write_pdf(filepath)
+        except Exception:
+            try:
+                from PyQt6.QtWidgets import QApplication
+                from PyQt6.QtCore import QMarginsF, QUrl
+                from PyQt6.QtGui import QPageLayout, QPageSize, QTextDocument
+                from PyQt6.QtPrintSupport import QPrinter
+
+                app = QApplication.instance() or QApplication([])
+
+                document = QTextDocument()
+                document.setBaseUrl(QUrl.fromLocalFile(template_dir + os.sep))
+                document.setHtml(html_content)
+
+                printer = QPrinter(QPrinter.PrinterMode.HighResolution)
+                printer.setOutputFormat(QPrinter.OutputFormat.PdfFormat)
+                printer.setOutputFileName(filepath)
+                printer.setPageSize(QPageSize(QPageSize.PageSizeId.A4))
+                printer.setPageMargins(
+                    QMarginsF(16, 18, 16, 20),
+                    QPageLayout.Unit.Millimeter,
+                )
+
+                document.print(printer)
+            except Exception:
+                # Fallback terakhir: simpan HTML agar isi laporan tetap bisa dibuka.
+                html_base = os.path.splitext(os.path.basename(filepath))[0] + "_preview"
+                html_path = self._unique_filepath(output_dir, html_base, ".html")
+                with open(html_path, "w", encoding="utf-8") as f:
+                    f.write(html_content)
+                filepath = html_path
 
         return filepath
 
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _unique_filepath(output_dir: str, base_filename: str, extension: str) -> str:
+        """Return path baru tanpa menimpa file yang sudah ada."""
+        filepath = os.path.join(output_dir, f"{base_filename}{extension}")
+        if not os.path.exists(filepath):
+            return filepath
+
+        counter = 2
+        while True:
+            candidate = os.path.join(output_dir, f"{base_filename}_{counter}{extension}")
+            if not os.path.exists(candidate):
+                return candidate
+            counter += 1
 
     @staticmethod
     def _pct(actual: int | float, target: int | float) -> float:

@@ -16,6 +16,8 @@ from PyQt6.QtGui import (
 from PyQt6.QtCore import Qt, QSize, QDate, QEvent, pyqtSignal
 import qtawesome as qta
 
+from src.controllers.LaporanController import LaporanController
+
 #Background
 class GradientBackground(QWidget):
     def paintEvent(self, event):
@@ -365,8 +367,10 @@ def make_date_field_v2(label_text):
  
 # Form Card
 class LaporanCard(Card):
-    def __init__(self, parent=None):
+    def __init__(self, user=None, parent=None):
         super().__init__(parent)
+        self.user = user
+        self.controller = LaporanController()
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
  
         lay = QVBoxLayout(self)
@@ -409,7 +413,7 @@ class LaporanCard(Card):
         shadow.setColor(QColor(53, 88, 114, 60))
         self.btn.setGraphicsEffect(shadow)
         
-        self.btn.clicked.connect(self.validate_inputs)
+        self.btn.clicked.connect(self.generate_laporan)
         lay.setSpacing(10)
         lay.addWidget(self.btn, alignment=Qt.AlignmentFlag.AlignHCenter)
 
@@ -485,7 +489,50 @@ class LaporanCard(Card):
                 is_valid = False
 
         if is_valid:
-            print("Form valid, generating report...")
+            return start_date.toPyDate(), end_date.toPyDate()
+
+        return None, None
+
+    def generate_laporan(self):
+        tanggal_awal, tanggal_akhir = self.validate_inputs()
+        if tanggal_awal is None or tanggal_akhir is None:
+            return
+
+        dicetak_oleh = getattr(self.user, "username", None) or "Admin"
+        output_dir = os.path.join(os.path.expanduser("~"), "Downloads")
+
+        self.btn.setEnabled(False)
+        self.btn.setText(" Membuat PDF...")
+
+        try:
+            result = self.controller.generate_laporan(
+                tanggal_awal=tanggal_awal,
+                tanggal_akhir=tanggal_akhir,
+                dicetak_oleh=dicetak_oleh,
+                output_dir=output_dir,
+            )
+
+            if result.get("success"):
+                QMessageBox.information(
+                    self,
+                    "Laporan berhasil",
+                    f"Laporan berhasil dibuat:\n{result.get('filepath')}",
+                )
+            else:
+                QMessageBox.warning(
+                    self,
+                    "Laporan gagal",
+                    result.get("message", "Laporan gagal dibuat."),
+                )
+        except Exception as exc:
+            QMessageBox.critical(
+                self,
+                "Laporan gagal",
+                f"Terjadi kesalahan saat membuat laporan:\n{exc}",
+            )
+        finally:
+            self.btn.setEnabled(True)
+            self.btn.setText(" Generate Laporan")
 
 # Main Window
 class LaporanWindow(GradientBackground):
@@ -531,7 +578,7 @@ class LaporanWindow(GradientBackground):
         inner_lay.setContentsMargins(28, 16, 28, 28)
         inner_lay.setSpacing(18)
  
-        inner_lay.addWidget(LaporanCard())
+        inner_lay.addWidget(LaporanCard(user=self.user))
         inner_lay.addStretch()
  
         scroll.setWidget(inner)
