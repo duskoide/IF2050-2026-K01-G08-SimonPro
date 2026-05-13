@@ -7,10 +7,11 @@ os.environ['QT_API'] = 'pyqt6'
 from PyQt6.QtWidgets import (
     QApplication, QDialog, QVBoxLayout, QHBoxLayout,
     QLabel, QComboBox, QLineEdit, QPushButton,
-    QFrame, QListView, QWidget, QGraphicsDropShadowEffect
+    QFrame, QListView, QWidget, QGraphicsDropShadowEffect,
+    QMessageBox
 )
 
-from PyQt6.QtCore import Qt, QSize
+from PyQt6.QtCore import Qt, QSize, QPoint
 
 from PyQt6.QtGui import (
     QPainter,
@@ -24,7 +25,11 @@ from PyQt6.QtGui import (
 import qtawesome as qta
 
 from src.models.Produk import Produk
+from src.models.Session import Session
 from src.utils.image_utils import pick_image_file, save_image_to_app
+from src.controllers.ProdukController import ProdukController
+from src.services.ProdukService import ProdukService
+from src.database.db_connection import get_db
 
 
 # ── Gradient Card Widget ───────────────────────────────────────────────────────
@@ -74,27 +79,34 @@ class GradientDialog(QDialog):
 
 # ── Overlay Dialog (layer hitam fullscreen) ────────────────────────────────────
 class OverlayDialog(QDialog):
-    OVERLAY_COLOR = (0, 0, 0, 160)
-    
-class EditProdukDialog(GradientDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.overlay_color = QColor(0, 0, 0, 160)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.fillRect(self.rect(), self.overlay_color)
+
+    def showEvent(self, event):
+        if self.parentWidget():
+            parent_window = self.parentWidget().window()
+            self.setGeometry(parent_window.rect())
+            self.move(parent_window.mapToGlobal(QPoint(0, 0)))
+        super().showEvent(event)
+
+
+class EditProdukDialog(OverlayDialog):
     """
     Card EditProduk di-stack di atasnya sebagai child widget.
     """
 
-    # Ubah nilai alpha (0–255) untuk mengatur opacity overlay
     def __init__(self, produk=None, categories: list[str] = None, parent=None):
         super().__init__(parent)
 
-        self.setWindowFlags(
-            Qt.WindowType.FramelessWindowHint |
-            Qt.WindowType.Dialog
-        )
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-
-        self.setFixedSize(706, 650)
-
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(28, 10, 28, 10)
+        main_layout.setContentsMargins(0, 0, 0, 0)
         
         # ── Buat card dan taruh di tengah ────────────────────────────────
         self.card = EditProdukCard(
@@ -103,11 +115,14 @@ class EditProdukDialog(GradientDialog):
             parent=self
         )
         self.card.setFixedSize(650, 610)
-        main_layout.addWidget(self.card)
+        main_layout.addWidget(self.card, alignment=Qt.AlignmentFlag.AlignCenter)
 
         self.card.btn_close.clicked.connect(self.close)
 
-    # paintEvent inherited from GradientDialog
+    def mousePressEvent(self, event):
+        if not self.card.geometry().contains(event.position().toPoint()):
+            self.close()
+        super().mousePressEvent(event)
 
 
 # ── Card Edit Produk (QWidget, bukan QDialog) ──────────────────────────────────
@@ -271,12 +286,19 @@ class EditProdukCard(GradientCard):
         }
     """
 
-    def __init__(self, produk=None, categories: list[str] = None, parent=None):
+    def __init__(self, produk=None, categories: list[str] = None, user=None, session=None, parent=None):
         super().__init__(parent)
 
         self.produk = produk
+        self.user = user
+        self.session = session
         self._categories = categories or []
         self._selected_image_path: str | None = None
+
+        db = get_db()
+        produk_service = ProdukService(db)
+        self.controller = ProdukController(produk_service)
+
 
         self._init_ui()
         self._populate_data()
@@ -599,6 +621,34 @@ class EditProdukCard(GradientCard):
         err_lbl.setVisible(False)
 
     def _clear_error_combo(self, combo: QComboBox, err_lbl: QLabel):
+        if combo.currentIndex() != 0:
+            combo.setStyleSheet(self._COMBO_SS)
+            err_lbl.setVisible(False)
+
+    def _clear_error_frame(self, frame: QFrame, err_lbl: QLabel):
+        frame.setStyleSheet(self._FRAME_NORMAL_SS)
+        err_lbl.setVisible(False)
+
+    def get_selected_image_relpath(self) -> str | None:
+        if self._selected_image_path:
+            return save_image_to_app(self._selected_image_path)
+        if self.produk and self.produk.gambar:
+            return self.produk.gambar
+        return None
+
+
+# ── Entry Point ────────────────────────────────────────────────────────────────
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    app.setStyle("Fusion")
+
+    dialog = EditProdukDialog(
+        categories=["Atasan", "Bawahan", "Pakaian Dalam"]
+    )
+    dialog.exec()
+
+    sys.exit(app.exec())
+r_combo(self, combo: QComboBox, err_lbl: QLabel):
         if combo.currentIndex() != 0:
             combo.setStyleSheet(self._COMBO_SS)
             err_lbl.setVisible(False)

@@ -1,3 +1,7 @@
+param(
+  [switch]$WithTestDeps
+)
+
 $ErrorActionPreference = "Stop"
 
 function Write-Log {
@@ -78,10 +82,6 @@ function Ensure-Shortcut {
   }
   $shortcut.Save()
 }
-
-param(
-  [switch]$WithTestDeps
-)
 
 Ensure-Admin
 Ensure-Winget

@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import (
     QListView, QWidget, QGraphicsDropShadowEffect
 )
 
-from PyQt6.QtCore import (Qt, QSize)
+from PyQt6.QtCore import (Qt, QSize, QPoint)
 
 from PyQt6.QtGui import (
     QPainter,
@@ -70,7 +70,26 @@ class GradientDialog(QDialog):
 
 
 # ── Overlay Dialog (layer hitam fullscreen) ────────────────────────────────────
-class TambahProdukDialog(GradientDialog):
+class OverlayDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.overlay_color = QColor(0, 0, 0, 160)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.fillRect(self.rect(), self.overlay_color)
+
+    def showEvent(self, event):
+        if self.parentWidget():
+            parent_window = self.parentWidget().window()
+            self.setGeometry(parent_window.rect())
+            self.move(parent_window.mapToGlobal(QPoint(0, 0)))
+        super().showEvent(event)
+
+
+class TambahProdukDialog(OverlayDialog):
     """
     Layer paling belakang: fullscreen, hitam semi-transparan.
     Card TambahProduk di-stack di atasnya sebagai child widget.
@@ -80,16 +99,8 @@ class TambahProdukDialog(GradientDialog):
     def __init__(self, kode_produk: str = " ", categories: list[str] = None, parent=None):
         super().__init__(parent)
 
-        self.setWindowFlags(
-            Qt.WindowType.FramelessWindowHint |
-            Qt.WindowType.Dialog
-        )
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-
-        self.setFixedSize(706, 680)
-
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(28, 10, 28, 10)
+        main_layout.setContentsMargins(0, 0, 0, 0)
 
         # ── Buat card dan taruh di tengah ────────────────────────────────────
         self.card = TambahProdukCard(
@@ -98,12 +109,15 @@ class TambahProdukDialog(GradientDialog):
             parent=self
         )
         self.card.setFixedSize(650, 640)
-        main_layout.addWidget(self.card)
+        main_layout.addWidget(self.card, alignment=Qt.AlignmentFlag.AlignCenter)
 
         # Tombol close pada card menutup seluruh overlay
         self.card.btn_close.clicked.connect(self.close)
 
-    # paintEvent inherited from GradientDialog
+    def mousePressEvent(self, event):
+        if not self.card.geometry().contains(event.position().toPoint()):
+            self.close()
+        super().mousePressEvent(event)
 
 
 # ── Card Tambah Produk (QWidget, bukan QDialog) ────────────────────────────────
