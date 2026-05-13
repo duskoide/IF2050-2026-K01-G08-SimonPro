@@ -8,7 +8,7 @@
         /* ===== Base & Reset ===== */
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
-            font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+            font-family: "Inter", system-ui, -apple-system, sans-serif;
             font-size: 11pt;
             line-height: 1.55;
             color: #1f2937;
@@ -31,7 +31,7 @@
             gap: 12px;
         }
         .brand img {
-            width: 44px; height: 44px; object-fit: contain;
+            width: 32px; height: 32px; object-fit: contain;
         }
         .brand-text h1 {
             font-size: 20pt; font-weight: 800; color: #355872;
@@ -214,8 +214,6 @@
 <!-- HEADER -->
 <div class="header">
     <div class="brand">
-        <!-- Ganti src ke base64 logo jika diperlukan -->
-        <img src="../../img/Logo Simonpro Biru.png" alt="SiMonPro">
         <div class="brand-text">
             <h1>SiMonPro</h1>
             <p>Laporan Produksi Harian</p>
@@ -362,7 +360,6 @@
 <!-- FOOTER -->
 <div class="footer">
     Laporan ini digenerate otomatis oleh SiMonPro (Sistem Monitoring Produksi).<br>
-    Data bersumber dari modul Pencapaian Target (UC06) dan Defect Analysis (UC07).<br>
     &copy; {{tahun}} SiMonPro — Group K01-G08 IF2050
 </div>
 

@@ -15,6 +15,8 @@ from PyQt6.QtGui import (
 )
 from PyQt6.QtCore import Qt, QSize, QDate, QEvent, pyqtSignal
 import qtawesome as qta
+from src.database.db_connection import get_db
+from src.services.ProdukService import ProdukService
 
 #Background
 class GradientBackground(QWidget):
@@ -497,16 +499,11 @@ class FormCard(Card):
     def __init__(self, parent=None):
         super().__init__(parent)
         
-        self.product_category_map = {
-            'Kaos Polos': 'Atasan',
-            'Hoodie': 'Atasan',
-            'Dress Floral': 'Dress',
-            'Rok Plisket': 'Bawahan',
-            'Kemeja': 'Atasan',
-            'Celana Jeans': 'Bawahan',
-            'Jaket Dilan': 'Outerwear',
-            'Blouse': 'Atasan'
-        }
+        db = get_db()
+        produk_svc = ProdukService(db)
+        produks = produk_svc.get_daftar_produk()
+        
+        self.product_category_map = {p.nama_produk: p.nama_kategori for p in produks}
 
         lay = QVBoxLayout(self)
         lay.setContentsMargins(24, 20, 24, 20)
