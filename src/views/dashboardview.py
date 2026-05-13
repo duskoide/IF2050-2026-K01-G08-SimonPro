@@ -34,6 +34,7 @@ from src.views.targetviewer import TargetWindow
 from src.views.pencapaianviewer import PencapaianWindow
 from src.views.defectviewer import DefectWindow
 from src.views.produksiviewer import InputProduksiWindow
+from src.views.laporanviewer import LaporanWindow
 
 
 # Background radial gradient
@@ -866,12 +867,20 @@ class DashboardWindow(GradientBackground):
             on_logout=self.on_logout,
             embedded=True,
         )
+        # Page 6 — Laporan
+        self.laporan_page = LaporanWindow(
+            user=self.user,
+            session=self.session,
+            on_logout=self.on_logout,
+            embedded=True,
+        )
         self.pages.addWidget(dashboard_page)
         self.pages.addWidget(self.produk_page)
         self.pages.addWidget(self.target_page)
         self.pages.addWidget(self.defect_page)
         self.pages.addWidget(self.input_page)
         self.pages.addWidget(self.pencapaian_page)
+        self.pages.addWidget(self.laporan_page)
 
         root.addWidget(self.pages)
 
@@ -890,6 +899,9 @@ class DashboardWindow(GradientBackground):
             return
         if label == "Pencapaian":
             self.pages.setCurrentIndex(5)
+            return
+        if label == "Laporan":
+            self.pages.setCurrentIndex(6)
             return
 
         self.pages.setCurrentIndex(0)
