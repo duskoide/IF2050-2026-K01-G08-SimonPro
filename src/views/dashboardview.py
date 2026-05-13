@@ -890,6 +890,8 @@ class DashboardWindow(GradientBackground):
             self.pages.setCurrentIndex(1)
             return
         if label == "Target":
+            if hasattr(self.target_page, "refresh_data"):
+                self.target_page.refresh_data()
             self.pages.setCurrentIndex(2)
             return
         if label == "Defect":
