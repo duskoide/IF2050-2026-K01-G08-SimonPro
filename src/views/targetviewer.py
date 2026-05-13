@@ -20,8 +20,8 @@ import qtawesome as qta
 from calendar import monthrange
 
 from src.database.db_connection import get_db
-from src.services.TargetService import TargetService
-from src.services.ProdukService import ProdukService
+from src.controllers.TargetController import TargetController
+from src.views.messageview import SuccessPopup
 
 # Background linear gradient
 class GradientBackground(QWidget):
@@ -751,42 +751,48 @@ class TargetWindow(GradientBackground):
         self.on_back = on_back
 
         db = get_db()
-        self._target_service = TargetService(db)
-        self._produk_service = ProdukService(db)
+        self._controller = TargetController(db)
+        self._controller.set_on_sukses(self.tampilkan_sukses)
+        self._controller.set_on_error(self.tampilkan_error)
 
         if not embedded:
             self.setWindowTitle("SiMonPro - Pengaturan Target")
+        
         self.init_ui()
+        self.success_popup = SuccessPopup(self)
+        self.refresh_data()
+
+    def refresh_data(self):
+        """Memuat ulang data produk dan target."""
+        self._load_products()
         self._refresh_table()
 
     def _load_products(self):
-        try:
-            produk_list = self._produk_service.get_daftar_produk()
-            return [
-                {
-                    "produk_id": p.produk_id,
-                    "nama_produk": p.nama_produk,
-                    "nama_kategori": p.nama_kategori,
-                }
-                for p in produk_list
-            ]
-        except Exception as e:
-            print(f"[TargetWindow] Gagal memuat produk: {e}")
-            return []
+        produk_list = self._controller.get_daftar_produk()
+        if hasattr(self, "form_card"):
+            self.form_card.set_products(produk_list)
+        return produk_list
 
     def _refresh_table(self):
-        try:
-            target_list = self._target_service.get_all_targets_grouped()
+        target_list = self._controller.get_all_targets_grouped()
+        if hasattr(self, "table_card"):
             self.table_card.set_targets(target_list)
-        except Exception as e:
-            print(f"[TargetWindow] Gagal memuat target: {e}")
 
     def _on_save_target(self, produk_id, nama_produk, nama_kategori, target_bulanan, target_harian, tahun, bulan):
-        try:
-            self._target_service.save_target(produk_id, target_bulanan, target_harian, tahun, bulan)
+        if self._controller.submit_save_target(produk_id, target_bulanan, target_harian, tahun, bulan):
             self._refresh_table()
-        except Exception as e:
-            print(f"[TargetWindow] Gagal menyimpan target: {e}")
+
+    def tampilkan_sukses(self, pesan):
+        self.success_popup.show_message(pesan)
+
+    def tampilkan_error(self, pesan):
+        # Gunakan popup yang sama tapi dengan warna error
+        self.success_popup.show_message(
+            pesan,
+            bg_color="#FFE5E5",
+            text_color="#B3261E",
+            icon_color="#B3261E"
+        )
 
     def init_ui(self):
         root = QHBoxLayout(self)
