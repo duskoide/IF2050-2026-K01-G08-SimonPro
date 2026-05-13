@@ -725,7 +725,20 @@ class ProdukWindow(GradientBackground):
     def _on_edit_produk(self, produk: Produk):
         if not produk:
             return
-        dialog = EditProdukDialog(produk=produk, parent=self)
+
+        kategori_list = []
+        try:
+            kategori_list = self._produk_service.get_daftar_kategori()
+        except Exception as e:
+            print(f"[ProdukWindow] Gagal memuat kategori: {e}")
+
+        dialog = EditProdukDialog(
+            produk=produk,
+            categories=kategori_list,
+            user=self.user,
+            session=self.session,
+            parent=self
+        )
         if dialog.exec():
             self.load_produk()
 
