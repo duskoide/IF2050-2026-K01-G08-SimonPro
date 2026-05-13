@@ -654,7 +654,6 @@ class Topbar(QFrame):
     def __init__(self, user=None, parent=None):
         super().__init__(parent)
         self.user = user
-        self._drag_pos = None
         self.setFixedHeight(70)
         self.setStyleSheet("background:transparent; border:none;")
 
@@ -695,22 +694,6 @@ class Topbar(QFrame):
         lay.addSpacing(3)
         lay.addWidget(info_col)
 
-    def mousePressEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton:
-            self._drag_pos = (
-                event.globalPosition().toPoint()
-                - self.window().frameGeometry().topLeft()
-            )
-            event.accept()
-
-    def mouseMoveEvent(self, event):
-        if event.buttons() == Qt.MouseButton.LeftButton and self._drag_pos:
-            self.window().move(event.globalPosition().toPoint() - self._drag_pos)
-            event.accept()
-
-    def mouseReleaseEvent(self, event):
-        self._drag_pos = None
-
 
 # Dashboard Window
 class DashboardWindow(GradientBackground):
@@ -725,9 +708,6 @@ class DashboardWindow(GradientBackground):
         self.input_window = None
         self.dashboard_service = DashboardService()
         self.setWindowTitle("SiMonPro - Dashboard")
-        self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self._drag_pos = None
         self.init_ui()
         self.load_data()
 
@@ -980,19 +960,6 @@ class DashboardWindow(GradientBackground):
             self.defect_window = None
         if self.on_logout:
             self.on_logout()
-
-    def mousePressEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton:
-            self._drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
-            event.accept()
-
-    def mouseMoveEvent(self, event):
-        if event.buttons() == Qt.MouseButton.LeftButton and self._drag_pos:
-            self.move(event.globalPosition().toPoint() - self._drag_pos)
-            event.accept()
-
-    def mouseReleaseEvent(self, event):
-        self._drag_pos = None
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Escape:
