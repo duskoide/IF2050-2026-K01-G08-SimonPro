@@ -176,8 +176,11 @@ fi
 
 chmod 644 "$desktop_file"
 
-log "Install complete."
-log "Next steps:"
-log "- docker compose up -d"
-log "- uv sync  (or: pip install -r requirements.txt)"
-log "- python main.py"
+log "Finalizing setup (uv sync & database)..."
+cd "$script_dir"
+uv sync
+docker compose up -d
+
+log ""
+log "Install complete!"
+log "You can now launch SiMonPro from your application menu or by running 'python main.py'."
