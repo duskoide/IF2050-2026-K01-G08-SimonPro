@@ -135,11 +135,36 @@ class BarChart(QWidget):
         self.target = [10500, 11000, 11500, 11800]
         self.actual = [10000, 10800, 11200, 11600]
         self.setMinimumHeight(380)
+        self.setMouseTracking(True)
+        self.hover_index = -1
+        self.hover_pos = None
 
     def set_data(self, labels, target, actual):
         self.labels = labels
         self.target = target
         self.actual = actual
+        self.update()
+
+    def mouseMoveEvent(self, event):
+        W, H = self.width(), self.height()
+        pl, pr = 54, 16
+        cw = W - pl - pr
+        n = len(self.labels)
+        if n > 0:
+            gw = cw / n
+            x = event.position().x()
+            idx = int((x - pl) / gw)
+            if 0 <= idx < n:
+                self.hover_index = idx
+                self.hover_pos = event.position()
+            else:
+                self.hover_index = -1
+        else:
+            self.hover_index = -1
+        self.update()
+
+    def leaveEvent(self, event):
+        self.hover_index = -1
         self.update()
 
     def paintEvent(self, event):
@@ -149,7 +174,7 @@ class BarChart(QWidget):
         pl, pr, pt, pb = 54, 16, 16, 62
         cw = W - pl - pr
         ch = H - pt - pb
-        max_v = max(self.target + self.actual) * 1.1
+        max_v = max(self.target + self.actual + [1]) * 1.1
         n = len(self.labels)
         if n == 0:
             return
@@ -177,7 +202,13 @@ class BarChart(QWidget):
 
             th = (self.target[i] / max_v) * ch
             tx, ty = cx - bw - 2, pt + ch - th
-            p.setBrush(QBrush(QColor("#7AAACE")))
+            
+            # Hover effect for target bar
+            color_target = QColor("#7AAACE")
+            if self.hover_index == i:
+                color_target = color_target.lighter(110)
+            
+            p.setBrush(QBrush(color_target))
             p.setPen(Qt.PenStyle.NoPen)
             path = QPainterPath()
             path.addRoundedRect(QRectF(tx, ty, bw, th), 4, 4)
@@ -185,7 +216,13 @@ class BarChart(QWidget):
 
             ah = (self.actual[i] / max_v) * ch
             ax, ay = cx + 2, pt + ch - ah
-            p.setBrush(QBrush(QColor("#9CD5FF")))
+            
+            # Hover effect for actual bar
+            color_actual = QColor("#9CD5FF")
+            if self.hover_index == i:
+                color_actual = color_actual.lighter(110)
+                
+            p.setBrush(QBrush(color_actual))
             path2 = QPainterPath()
             path2.addRoundedRect(QRectF(ax, ay, bw, ah), 4, 4)
             p.drawPath(path2)
@@ -235,6 +272,36 @@ class BarChart(QWidget):
             "Aktual",
         )
 
+        # Tooltip
+        if self.hover_index != -1 and self.hover_pos:
+            idx = self.hover_index
+            target = self.target[idx]
+            actual = self.actual[idx]
+            percent = (actual / target * 100) if target > 0 else 0
+            
+            text = f"{self.labels[idx]}\nTarget: {target:,}\nAktual: {actual:,}\nPencapaian: {percent:.1f}%"
+            
+            p.setFont(QFont("Inter", 12))
+            metrics = p.fontMetrics()
+            lines = text.split('\n')
+            tw = max([metrics.horizontalAdvance(l) for l in lines]) + 20
+            th = metrics.height() * len(lines) + 10
+            
+            tx = self.hover_pos.x() + 10
+            ty = self.hover_pos.y() - th - 10
+            
+            if tx + tw > W: tx = self.hover_pos.x() - tw - 10
+            if ty < 0: ty = self.hover_pos.y() + 10
+            
+            rect = QRectF(tx, ty, tw, th)
+            p.setBrush(QBrush(QColor(53, 88, 114, 230)))
+            p.setPen(Qt.PenStyle.NoPen)
+            p.drawRoundedRect(rect, 5, 5)
+            
+            p.setPen(QColor("#FFFFFF"))
+            for i, line in enumerate(lines):
+                p.drawText(int(tx + 10), int(ty + metrics.ascent() + 5 + i * metrics.height()), line)
+
 
 # Line Chart
 class LineChart(QWidget):
@@ -242,11 +309,42 @@ class LineChart(QWidget):
         super().__init__(parent)
         self.labels = ["Jan", "Feb", "Mar", "Apr"]
         self.values = [120, 115, 145, 85]
+        self.actual = [1000, 1000, 1000, 1000]
         self.setMinimumHeight(380)
+        self.setMouseTracking(True)
+        self.hover_index = -1
+        self.hover_pos = None
 
-    def set_data(self, labels, values):
+    def set_data(self, labels, values, actual=None):
         self.labels = labels
         self.values = values
+        if actual:
+            self.actual = actual
+        self.update()
+
+    def mouseMoveEvent(self, event):
+        W, H = self.width(), self.height()
+        pl, pr = 54, 16
+        cw = W - pl - pr
+        n = len(self.labels)
+        if n > 1:
+            gw = cw / (n - 1)
+            x = event.position().x()
+            idx = round((x - pl) / gw)
+            if 0 <= idx < n:
+                self.hover_index = idx
+                self.hover_pos = event.position()
+            else:
+                self.hover_index = -1
+        elif n == 1:
+            self.hover_index = 0
+            self.hover_pos = event.position()
+        else:
+            self.hover_index = -1
+        self.update()
+
+    def leaveEvent(self, event):
+        self.hover_index = -1
         self.update()
 
     def paintEvent(self, event):
@@ -256,13 +354,15 @@ class LineChart(QWidget):
         pl, pr, pt, pb = 54, 16, 16, 62
         cw = W - pl - pr
         ch = H - pt - pb
-        max_v = 180
+        max_v = max(self.values + [1]) * 1.2
         n = len(self.values)
         if n == 0:
             return
 
         def px(i):
-            return pl + i * cw / (n - 1)
+            if n > 1:
+                return pl + i * cw / (n - 1)
+            return pl + cw / 2
 
         def py(v):
             return pt + ch - (v / max_v) * ch
@@ -306,7 +406,10 @@ class LineChart(QWidget):
 
         # Titik
         for i in range(n):
-            p.setBrush(QBrush(QColor("#FFFFFF")))
+            color = QColor("#FFFFFF")
+            if self.hover_index == i:
+                color = QColor("#9CD5FF")
+            p.setBrush(QBrush(color))
             p.setPen(QPen(QColor("#355872"), 2))
             p.drawEllipse(QPointF(px(i), py(self.values[i])), 5, 5)
 
@@ -350,6 +453,36 @@ class LineChart(QWidget):
             Qt.AlignmentFlag.AlignLeft,
             "Defect",
         )
+
+        # Tooltip
+        if self.hover_index != -1 and self.hover_pos:
+            idx = self.hover_index
+            defect = self.values[idx]
+            actual = self.actual[idx] if idx < len(self.actual) else 0
+            percent = (defect / actual * 100) if actual > 0 else 0
+            
+            text = f"{self.labels[idx]}\nDefect: {defect:,}\nRate: {percent:.1f}%"
+            
+            p.setFont(QFont("Inter", 12))
+            metrics = p.fontMetrics()
+            lines = text.split('\n')
+            tw = max([metrics.horizontalAdvance(l) for l in lines]) + 20
+            th = metrics.height() * len(lines) + 10
+            
+            tx = self.hover_pos.x() + 10
+            ty = self.hover_pos.y() - th - 10
+            
+            if tx + tw > W: tx = self.hover_pos.x() - tw - 10
+            if ty < 0: ty = self.hover_pos.y() + 10
+            
+            rect = QRectF(tx, ty, tw, th)
+            p.setBrush(QBrush(QColor(53, 88, 114, 230)))
+            p.setPen(Qt.PenStyle.NoPen)
+            p.drawRoundedRect(rect, 5, 5)
+            
+            p.setPen(QColor("#FFFFFF"))
+            for i, line in enumerate(lines):
+                p.drawText(int(tx + 10), int(ty + metrics.ascent() + 5 + i * metrics.height()), line)
 
 
 # Sidebar
@@ -789,7 +922,7 @@ class DashboardWindow(GradientBackground):
             self.bar_chart.set_data(
                 charts["labels"], charts["target"], charts["actual"]
             )
-            self.line_chart.set_data(charts["labels"], charts["defect"])
+            self.line_chart.set_data(charts["labels"], charts["defect"], charts["actual"])
         except Exception as e:
             print(f"[Dashboard] Gagal memuat data: {e}")
 
