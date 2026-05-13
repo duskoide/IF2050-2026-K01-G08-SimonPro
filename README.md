@@ -248,3 +248,19 @@ Tabel untuk menyimpan data sesi login pengguna.
 - Aplikasi ini menggunakan arsitektur berbasis Model-View-Controller (MVC) untuk memisahkan logika bisnis, antarmuka pengguna, dan pengontrol alur kerja.
 - Semua koneksi ke basis data dikelola melalui kelas singleton `Database` yang terdapat pada modul `src/database/db_connection.py` untuk memastikan efisiensi koneksi.
 - Data dummy yang disediakan mencakup periode Januari hingga April 2025 untuk keperluan pengujian dan demonstrasi fitur dashboard.
+
+---
+
+## CI/CD Otomatis (Bonus)
+
+Repository ini menggunakan GitHub Actions untuk menjalankan otomatisasi CI/CD:
+
+- **CI (Continuous Integration)**
+  - Workflow: `.github/workflows/ci.yml`
+  - Trigger: `pull_request` ke `main`, `master`, atau `develop`; `push` ke `main` atau `master`
+  - Proses: setup Python + dependency, inisialisasi database PostgreSQL, lalu menjalankan seluruh test dengan `pytest`.
+
+- **CD (Continuous Delivery)**
+  - Trigger: `push` ke `main` atau `master` setelah job test sukses.
+  - Proses: membuat paket source code (`.zip`) dan checksum (`.sha256`) sebagai artefak rilis internal.
+  - Output: artefak dapat diunduh dari halaman run GitHub Actions pada bagian `Artifacts`.

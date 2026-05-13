@@ -1,8 +1,11 @@
 name: CI - Test & Validate
 
 on:
+  push:
+    branches: ["main", "master"]
   pull_request:
-    branches: ["main", "develop"]
+    branches: ["main", "master", "develop"]
+  workflow_dispatch:
 
 jobs:
   test:
@@ -66,3 +69,32 @@ jobs:
           QT_DEBUG_PLUGINS: "1"
         # xvfb-run to exec pytest so PyQt can render UI in background process
         run: xvfb-run -a uv run pytest tests/ -v
+
+  delivery:
+    name: Package Delivery Artifact
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Prepare Package Metadata
+        run: |
+          mkdir -p dist
+          echo "commit=${GITHUB_SHA}" > dist/build-info.txt
+          echo "branch=${GITHUB_REF_NAME}" >> dist/build-info.txt
+          echo "built_at=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> dist/build-info.txt
+
+      - name: Create Source Bundle
+        run: |
+          git archive --format=zip --output="dist/simonpro-${GITHUB_SHA::7}.zip" HEAD
+          sha256sum "dist/simonpro-${GITHUB_SHA::7}.zip" > "dist/simonpro-${GITHUB_SHA::7}.sha256"
+
+      - name: Upload Delivery Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: simonpro-delivery-${{ github.sha }}
+          path: dist/
+          if-no-files-found: error
