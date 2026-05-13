@@ -11,16 +11,18 @@ from src.database.db_connection import get_db
 
 
 class PencapaianService:
-    def __init__(self, db=None):
+    def __init__(self, db=None, time_service=None):
         self.db = db or get_db()
+        self.time_service = time_service
+
+    def _today(self) -> date:
+        if self.time_service is not None:
+            return self.time_service.today()
+        return date.today()
 
     def get_insight_pencapaian(self, months: int = 4) -> dict[str, Any]:
         months = max(1, int(months or 4))
-        period = self._get_period(months)
-        if period is None:
-            return self._empty_result()
-
-        start_date, end_date = period
+        start_date, end_date = self._get_period(months)
         labels, target, actual = self._get_target_vs_actual(start_date, end_date)
         efficiency = [
             self._percentage(actual_value, target_value)
@@ -51,26 +53,11 @@ class PencapaianService:
             "insights": self._build_trend_insights(labels, efficiency),
         }
 
-    def _get_period(self, months: int) -> tuple[date, date] | None:
-        rows = self.db.execute_query(
-            """
-            SELECT MAX(bulan) AS latest_month
-            FROM (
-                SELECT DATE_TRUNC('month', tanggal)::date AS bulan
-                FROM produksi_harian
-                UNION
-                SELECT DATE_TRUNC('month', tanggal_mulai)::date AS bulan
-                FROM target_produksi
-            ) periode_data
-            """
-        )
-        if not rows or rows[0]["latest_month"] is None:
-            return None
-
-        latest_month = rows[0]["latest_month"]
-        start_month = latest_month - relativedelta(months=months - 1)
-        end_date = latest_month + relativedelta(months=1, days=-1)
-        return start_month, end_date
+    def _get_period(self, months: int) -> tuple[date, date]:
+        current_date = self._today()
+        current_month = current_date.replace(day=1)
+        start_month = current_month - relativedelta(months=months - 1)
+        return start_month, current_date
 
     def _get_target_vs_actual(self, start_date: date, end_date: date):
         target_rows = self.db.execute_query(

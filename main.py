@@ -10,6 +10,7 @@ from src.services.AuthService import AuthService
 from src.views.loginpage import LoginWindow
 from src.views.dashboardview import DashboardWindow
 from src.controllers.LoginController import LoginController
+from src.utils.time_service import TimeService
 
 
 def main() -> int:
@@ -27,6 +28,7 @@ def main() -> int:
 
     # setup auth
     auth_service = AuthService()
+    time_service = TimeService()
     login_window = LoginWindow()
     dashboard_window = None
 
@@ -35,6 +37,7 @@ def main() -> int:
         dashboard_window = DashboardWindow(
             user=user,
             session=session,
+            time_service=time_service,
             on_logout=lambda: on_logout(session)
         )
         dashboard_window.showMaximized()

@@ -16,6 +16,12 @@ from PyQt6.QtGui import (
 from PyQt6.QtCore import Qt, QSize, QDate, QEvent, pyqtSignal
 import qtawesome as qta
 
+from src.utils.time_service import TimeService
+
+
+def qdate_from_date(value):
+    return QDate(value.year, value.month, value.day)
+
 #Background
 class GradientBackground(QWidget):
     def paintEvent(self, event):
@@ -377,8 +383,9 @@ def make_label(text):
 
 # Form Card (Tanggal, Kategori, Nama Produk, Jumlah)
 class FormCard(Card):
-    def __init__(self, parent=None):
+    def __init__(self, time_service=None, parent=None):
         super().__init__(parent)
+        self.time_service = time_service
         
         self.product_category_map = {
             'Kaos Polos': 'Atasan',
@@ -406,7 +413,7 @@ class FormCard(Card):
         self.inp_date = QDateEdit()
         self.inp_date.setFixedHeight(50)
         self.inp_date.setDisplayFormat("dd/MM/yyyy")
-        self.inp_date.setDate(QDate.currentDate())
+        self.set_current_date()
         self.inp_date.setCalendarPopup(True)
         self.inp_date.setStyleSheet(DATE_STYLE)
 
@@ -492,6 +499,12 @@ class FormCard(Card):
     def show_calendar_popup(self):
         event = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_Down, Qt.KeyboardModifier.AltModifier)
         QApplication.postEvent(self.inp_date, event)
+
+    def set_current_date(self):
+        if self.time_service is not None:
+            self.inp_date.setDate(qdate_from_date(self.time_service.today()))
+        else:
+            self.inp_date.setDate(QDate.currentDate())
 
     def update_category(self, text):
         category = self.product_category_map.get(text, "")
@@ -647,7 +660,7 @@ class BottomBar(QFrame):
 
     def reset_form(self):
         if not self.form_card: return
-        self.form_card.inp_date.setDate(QDate.currentDate())
+        self.form_card.set_current_date()
         self.form_card.combo_produk.setCurrentIndex(0)
         self.form_card.inp_jml.clear()
         self.form_card.inp_jml.setStyleSheet(INPUT_STYLE)
@@ -665,6 +678,7 @@ class InputProduksiWindow(GradientBackground):
         self,
         user=None,
         session=None,
+        time_service=None,
         on_logout=None,
         embedded=False,
         on_back=None,
@@ -672,6 +686,7 @@ class InputProduksiWindow(GradientBackground):
         super().__init__()
         self.user = user
         self.session = session
+        self.time_service = time_service or TimeService(parent=self)
         self.on_logout = on_logout
         self.embedded = embedded
         self.on_back = on_back
@@ -713,7 +728,7 @@ class InputProduksiWindow(GradientBackground):
         inner_lay.setContentsMargins(28, 16, 28, 28)
         inner_lay.setSpacing(18)
         
-        self.form_card = FormCard()
+        self.form_card = FormCard(time_service=self.time_service)
         self.defect_card = DefectCard()
         self.bottom_bar = BottomBar(form_card=self.form_card, defect_card=self.defect_card)
         

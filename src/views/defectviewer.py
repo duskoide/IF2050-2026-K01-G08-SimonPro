@@ -25,6 +25,7 @@ import numpy as np
 from scipy.interpolate import make_interp_spline
 
 from src.services.DefectService import DefectService
+from src.utils.time_service import TimeService
 
 # Background
 class GradientBackground(QWidget):
@@ -591,6 +592,7 @@ class DefectWindow(GradientBackground):
         self,
         user=None,
         session=None,
+        time_service=None,
         on_logout=None,
         embedded=False,
         on_back=None,
@@ -598,6 +600,11 @@ class DefectWindow(GradientBackground):
         super().__init__()
         self.user = user
         self.session = session
+        self.time_service = time_service or TimeService(parent=self)
+        try:
+            self.service = DefectService(time_service=self.time_service)
+        except TypeError:
+            self.service = DefectService()
         self.on_logout = on_logout
         self.embedded = embedded
         self.on_back = on_back
@@ -607,6 +614,7 @@ class DefectWindow(GradientBackground):
             self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self._drag_pos = None
         self.init_ui()
+        self.time_service.date_changed.connect(lambda _today: self.load_data())
 
     def init_ui(self):
         root = QHBoxLayout(self)
@@ -640,9 +648,31 @@ class DefectWindow(GradientBackground):
         inner_lay.setContentsMargins(28, 16, 28, 28)
         inner_lay.setSpacing(20)
 
-        # Fetch data from database
-        service = DefectService()
-        data = service.get_defect_data(months=4)
+        self.data_lay = QVBoxLayout()
+        self.data_lay.setSpacing(20)
+        inner_lay.addLayout(self.data_lay)
+        inner_lay.addStretch()
+
+        scroll.setWidget(inner)
+        c_lay.addWidget(scroll)
+        root.addWidget(content)
+
+        self.load_data()
+
+    def _clear_layout(self, layout):
+        while layout.count():
+            item = layout.takeAt(0)
+            child_layout = item.layout()
+            widget = item.widget()
+            if child_layout is not None:
+                self._clear_layout(child_layout)
+            if widget is not None:
+                widget.deleteLater()
+
+    def load_data(self):
+        self._clear_layout(self.data_lay)
+
+        data = self.service.get_defect_data(months=4)
 
         months = data["months_labels"]
         vals = data["defect_per_month"]
@@ -663,20 +693,14 @@ class DefectWindow(GradientBackground):
         stat_row.addWidget(StatCard("Total Defect", str(total_defect), mom_text))
         stat_row.addWidget(StatCard("Defect Rate", f"{defect_rate}%", "Target: < 1%"))
         stat_row.addWidget(StatCard("Tipe Defect Terbanyak", top_type, f"{top_pct}% dari total"))
-        inner_lay.addLayout(stat_row)
+        self.data_lay.addLayout(stat_row)
 
         # Charts row
         chart_row = QHBoxLayout()
         chart_row.setSpacing(16)
         chart_row.addWidget(LineDefectCard(months, vals), stretch=1)
         chart_row.addWidget(HBarDefectCard(types, counts, pcts), stretch=1)
-        inner_lay.addLayout(chart_row)
-
-        inner_lay.addStretch()
-
-        scroll.setWidget(inner)
-        c_lay.addWidget(scroll)
-        root.addWidget(content)
+        self.data_lay.addLayout(chart_row)
 
     def navigate_to(self, label):
         if self.embedded:

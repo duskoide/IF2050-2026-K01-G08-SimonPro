@@ -3,8 +3,14 @@ from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
 class DashboardService:
-    def __init__(self):
+    def __init__(self, time_service=None):
         self.db = get_db()
+        self.time_service = time_service
+
+    def _now(self):
+        if self.time_service is not None:
+            return self.time_service.now()
+        return datetime.now()
 
     def get_summary_data(self):
         """Fetch summary statistics for dashboard cards."""
@@ -16,19 +22,9 @@ class DashboardService:
         }
 
     def get_chart_data(self, months=4):
-        """Fetch data for bar chart (target vs aktual) and line chart (defect).
-
-        If the requested period has no data, falls back to the last ``months``
-        months that *do* have data in the database.
-        """
+        """Fetch chart data for the last N months through the current month."""
         labels, target, actual = self._get_target_vs_aktual(months)
         _, defect_values = self._get_defect_per_bulan(months)
-
-        # When everything is empty (dummy data is old), grab the latest N months
-        # that actually exist in the DB.
-        if sum(actual) == 0 and sum(target) == 0:
-            labels, target, actual = self._get_latest_target_vs_aktual(months)
-            _, defect_values = self._get_latest_defect_per_bulan(months)
 
         return {
             "labels": labels,
@@ -77,13 +73,13 @@ class DashboardService:
 
     def _get_target_vs_aktual(self, months=4):
         """Return monthly target vs actual for the last N months."""
-        end_date = datetime.now()
+        end_date = self._now()
         start_date = end_date - relativedelta(months=months-1)
         start_date = start_date.replace(day=1)
 
         query = """
             SELECT 
-                TO_CHAR(DATE_TRUNC('month', tanggal), 'Mon') AS bulan,
+                DATE_TRUNC('month', tanggal)::date AS bulan,
                 COALESCE(SUM(jumlah_aktual), 0) AS aktual
             FROM produksi_harian
             WHERE tanggal >= %s AND tanggal <= %s
@@ -94,7 +90,7 @@ class DashboardService:
 
         query_target = """
             SELECT 
-                TO_CHAR(DATE_TRUNC('month', tanggal_mulai), 'Mon') AS bulan,
+                DATE_TRUNC('month', tanggal_mulai)::date AS bulan,
                 COALESCE(SUM(jumlah_target), 0) AS target
             FROM target_produksi
             WHERE tanggal_mulai >= %s AND tanggal_mulai <= %s
@@ -110,10 +106,11 @@ class DashboardService:
 
         for i in range(months):
             d = end_date - relativedelta(months=months - 1 - i)
+            month_key = d.date().replace(day=1)
             label = d.strftime("%b")
             labels.append(label)
-            target_map[label] = 0
-            actual_map[label] = 0
+            target_map[month_key] = 0
+            actual_map[month_key] = 0
 
         for r in rows_target:
             bulan = r["bulan"]
@@ -125,8 +122,9 @@ class DashboardService:
             if bulan in actual_map:
                 actual_map[bulan] = int(r["aktual"])
 
-        target_values = [target_map[lbl] for lbl in labels]
-        actual_values = [actual_map[lbl] for lbl in labels]
+        month_keys = list(target_map.keys())
+        target_values = [target_map[key] for key in month_keys]
+        actual_values = [actual_map[key] for key in month_keys]
 
         return labels, target_values, actual_values
 
@@ -180,13 +178,13 @@ class DashboardService:
 
     def _get_defect_per_bulan(self, months=4):
         """Return monthly defect count for the last N months."""
-        end_date = datetime.now()
+        end_date = self._now()
         start_date = end_date - relativedelta(months=months-1)
         start_date = start_date.replace(day=1)
 
         query = """
             SELECT 
-                TO_CHAR(DATE_TRUNC('month', tanggal), 'Mon') AS bulan,
+                DATE_TRUNC('month', tanggal)::date AS bulan,
                 COALESCE(SUM(jumlah_defect), 0) AS defect
             FROM produksi_harian
             WHERE tanggal >= %s AND tanggal <= %s
@@ -199,16 +197,17 @@ class DashboardService:
         defect_map = {}
         for i in range(months):
             d = end_date - relativedelta(months=months - 1 - i)
+            month_key = d.date().replace(day=1)
             label = d.strftime("%b")
             labels.append(label)
-            defect_map[label] = 0
+            defect_map[month_key] = 0
 
         for r in rows:
             bulan = r["bulan"]
             if bulan in defect_map:
                 defect_map[bulan] = int(r["defect"])
 
-        defect_values = [defect_map[lbl] for lbl in labels]
+        defect_values = [defect_map[key] for key in defect_map.keys()]
         return labels, defect_values
 
     def _get_latest_defect_per_bulan(self, months=4):

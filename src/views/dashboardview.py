@@ -30,6 +30,7 @@ from PyQt6.QtWidgets import (
 )
 
 from src.services.DashboardService import DashboardService
+from src.utils.time_service import TimeService
 from src.views.targetviewer import TargetWindow
 from src.views.pencapaianviewer import PencapaianWindow
 from src.views.defectviewer import DefectWindow
@@ -580,22 +581,24 @@ class Topbar(QFrame):
 
 # Dashboard Window
 class DashboardWindow(GradientBackground):
-    def __init__(self, user=None, session=None, on_logout=None):
+    def __init__(self, user=None, session=None, time_service=None, on_logout=None):
         super().__init__()
         self.user = user
         self.session = session
+        self.time_service = time_service or TimeService(parent=self)
         self.on_logout = on_logout
         self._target_window = None
         self.pencapaian_window = None
         self.defect_window = None
         self.input_window = None
-        self.dashboard_service = DashboardService()
+        self.dashboard_service = DashboardService(time_service=self.time_service)
         self.setWindowTitle("SiMonPro - Dashboard")
         self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self._drag_pos = None
         self.init_ui()
         self.load_data()
+        self.time_service.date_changed.connect(lambda _today: self.load_data())
 
     def init_ui(self):
         from src.views.produklistview import ProdukWindow
@@ -716,6 +719,7 @@ class DashboardWindow(GradientBackground):
         self.defect_page = DefectWindow(
             user=self.user,
             session=self.session,
+            time_service=self.time_service,
             on_logout=self.on_logout,
             embedded=True,
         )
@@ -723,6 +727,7 @@ class DashboardWindow(GradientBackground):
         self.input_page = InputProduksiWindow(
             user=self.user,
             session=self.session,
+            time_service=self.time_service,
             on_logout=self.on_logout,
             embedded=True,
         )
@@ -742,6 +747,7 @@ class DashboardWindow(GradientBackground):
             self.pages.setCurrentIndex(2)
             return
         if label == "Defect":
+            self.defect_page.load_data()
             self.pages.setCurrentIndex(3)
             return
         if label == "Input Produksi":
@@ -799,6 +805,7 @@ class DashboardWindow(GradientBackground):
         self.pencapaian_window = PencapaianWindow(
             user=self.user,
             session=self.session,
+            time_service=self.time_service,
             on_logout=self._handle_child_logout,
             on_back=self._navigate_from_child,
         )

@@ -3,10 +3,13 @@ from datetime import date
 from src.services.PencapaianService import PencapaianService
 
 
+class FakeTimeService:
+    def today(self):
+        return date(2026, 4, 15)
+
+
 class FakePencapaianDb:
     def execute_query(self, sql, params=None):
-        if "MAX(bulan)" in sql:
-            return [{"latest_month": date(2026, 4, 1)}]
         if "FROM target_produksi" in sql and "jumlah_target" in sql:
             return [
                 {"bulan": date(2026, 3, 1), "target": 100},
@@ -29,7 +32,7 @@ class FakePencapaianDb:
 
 
 def test_get_insight_pencapaian_menghitung_ringkasan_dan_grafik():
-    service = PencapaianService(db=FakePencapaianDb())
+    service = PencapaianService(db=FakePencapaianDb(), time_service=FakeTimeService())
 
     result = service.get_insight_pencapaian(months=2)
 

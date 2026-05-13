@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 import importlib
 import sys
 from pathlib import Path
@@ -25,10 +25,10 @@ class FakeDefectDB:
     def execute_query(self, sql, params=None):
         normalized = " ".join(sql.split()).lower()
 
-        if "to_char(date_trunc('month', tanggal), 'mon') as bulan" in normalized:
+        if "date_trunc('month', tanggal)::date as bulan" in normalized:
             return [
-                {"bulan": "Jan", "defect": 10},
-                {"bulan": "Feb", "defect": 5},
+                {"bulan": date(2026, 1, 1), "defect": 10},
+                {"bulan": date(2026, 2, 1), "defect": 5},
             ]
 
         if "select distinct date_trunc('month', tanggal) as bulan" in normalized:
@@ -47,10 +47,15 @@ class FakeDefectDB:
         raise AssertionError(f"Unexpected query: {sql}")
 
 
+class FakeTimeService:
+    def today(self):
+        return date(2026, 2, 15)
+
+
 @pytest.fixture
 def service(monkeypatch):
     monkeypatch.setattr(defect_service_module, "get_db", lambda: FakeDefectDB())
-    return defect_service_module.DefectService()
+    return defect_service_module.DefectService(time_service=FakeTimeService())
 
 
 def test_uc07_defect_service_returns_dashboard_ready_data(service):

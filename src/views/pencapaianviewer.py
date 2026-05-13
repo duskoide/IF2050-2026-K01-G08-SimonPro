@@ -22,6 +22,7 @@ import numpy as np
 
 from src.controllers.PencapaianController import PencapaianController
 from src.services.PencapaianService import PencapaianService
+from src.utils.time_service import TimeService
 
 
 # Background
@@ -739,13 +740,25 @@ class LineChartCard(Card):
 
 # Main Window
 class PencapaianWindow(GradientBackground):
-    def __init__(self, user=None, session=None, on_logout=None, controller=None, on_back=None):
+    def __init__(
+        self,
+        user=None,
+        session=None,
+        time_service=None,
+        on_logout=None,
+        controller=None,
+        on_back=None,
+    ):
         super().__init__()
         self.user = user
         self.session = session
+        self.time_service = time_service or TimeService(parent=self)
         self.on_logout = on_logout
         self.on_back = on_back
-        self.controller = controller or PencapaianController(PencapaianService(), viewer=self)
+        self.controller = controller or PencapaianController(
+            PencapaianService(time_service=self.time_service),
+            viewer=self,
+        )
         self.controller.set_viewer(self)
         self.setWindowTitle("SiMonPro - Pencapaian Produksi")
         self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
@@ -753,6 +766,7 @@ class PencapaianWindow(GradientBackground):
         self._drag_pos = None
         self.init_ui()
         self.load_data()
+        self.time_service.date_changed.connect(lambda _today: self.load_data())
 
     def init_ui(self):
         root = QHBoxLayout(self)

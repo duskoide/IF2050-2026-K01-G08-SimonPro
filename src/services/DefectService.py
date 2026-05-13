@@ -1,11 +1,23 @@
 from src.database.db_connection import get_db
-from datetime import datetime
+from datetime import date
 from dateutil.relativedelta import relativedelta
 
 
 class DefectService:
-    def __init__(self):
+    def __init__(self, time_service=None):
         self.db = get_db()
+        self.time_service = time_service
+
+    def _today(self) -> date:
+        if self.time_service is not None:
+            return self.time_service.today()
+        return date.today()
+
+    def _get_period(self, months: int):
+        current_date = self._today()
+        current_month = current_date.replace(day=1)
+        start_month = current_month - relativedelta(months=months - 1)
+        return start_month, current_date
 
     # ------------------------------------------------------------------
     # Public API
@@ -24,14 +36,14 @@ class DefectService:
             - top_type: str                  type with highest count
             - top_pct: int                   percentage of top type
         """
-        labels, defect_vals = self._get_defect_per_bulan(months)
-        if sum(defect_vals) == 0:
-            labels, defect_vals = self._get_latest_defect_per_bulan(months)
+        months = max(1, int(months or 4))
+        start_date, end_date = self._get_period(months)
+        labels, defect_vals = self._get_defect_per_bulan(start_date, end_date)
 
-        types, counts, pcts = self._get_defect_per_tipe(labels)
+        types, counts, pcts = self._get_defect_per_tipe(start_date, end_date)
 
         total_defect = sum(defect_vals)
-        defect_rate = self._get_defect_rate(labels)
+        defect_rate = self._get_defect_rate(start_date, end_date)
         top_type, top_pct = self._get_top_defect_type(types, counts, pcts)
 
         # month-over-month change for the "Total Defect" subtitle
@@ -53,15 +65,11 @@ class DefectService:
     # ------------------------------------------------------------------
     # Monthly defect trend (line chart)
     # ------------------------------------------------------------------
-    def _get_defect_per_bulan(self, months=4):
-        """Return monthly defect count for the last N months."""
-        end_date = datetime.now()
-        start_date = end_date - relativedelta(months=months - 1)
-        start_date = start_date.replace(day=1)
-
+    def _get_defect_per_bulan(self, start_date, end_date):
+        """Return monthly defect count for the selected month-year period."""
         query = """
             SELECT 
-                TO_CHAR(DATE_TRUNC('month', tanggal), 'Mon') AS bulan,
+                DATE_TRUNC('month', tanggal)::date AS bulan,
                 COALESCE(SUM(jumlah_defect), 0) AS defect
             FROM produksi_harian
             WHERE tanggal >= %s AND tanggal <= %s
@@ -72,97 +80,48 @@ class DefectService:
 
         labels = []
         defect_map = {}
-        for i in range(months):
-            d = end_date - relativedelta(months=months - 1 - i)
-            label = d.strftime("%b")
-            labels.append(label)
-            defect_map[label] = 0
+        cursor = start_date
+        while cursor <= end_date:
+            labels.append(cursor.strftime("%b"))
+            defect_map[cursor] = 0
+            cursor += relativedelta(months=1)
 
-        for r in rows:
-            bulan = r["bulan"]
+        for row in rows:
+            bulan = row["bulan"]
             if bulan in defect_map:
-                defect_map[bulan] = int(r["defect"])
+                defect_map[bulan] = int(row["defect"])
 
-        defect_values = [defect_map[lbl] for lbl in labels]
-        return labels, defect_values
-
-    def _get_latest_defect_per_bulan(self, months=4):
-        """Fallback: return defect count for the most recent N months with data."""
-        query = """
-            SELECT DISTINCT DATE_TRUNC('month', tanggal) AS bulan
-            FROM produksi_harian
-            ORDER BY bulan DESC
-            LIMIT %s
-        """
-        month_rows = self.db.execute_query(query, (months,))
-        if not month_rows:
-            return [], []
-
-        month_rows = list(reversed(month_rows))
-        labels = [m["bulan"].strftime("%b") for m in month_rows]
-        start = month_rows[0]["bulan"]
-        end = month_rows[-1]["bulan"] + relativedelta(months=1, days=-1)
-
-        query = """
-            SELECT 
-                TO_CHAR(DATE_TRUNC('month', tanggal), 'Mon') AS bulan,
-                COALESCE(SUM(jumlah_defect), 0) AS defect
-            FROM produksi_harian
-            WHERE tanggal >= %s AND tanggal <= %s
-            GROUP BY DATE_TRUNC('month', tanggal)
-            ORDER BY DATE_TRUNC('month', tanggal)
-        """
-        rows = self.db.execute_query(query, (start, end))
-        defect_map = {r["bulan"]: int(r["defect"]) for r in rows}
-        defect_values = [defect_map.get(lbl, 0) for lbl in labels]
+        defect_values = [defect_map[key] for key in defect_map.keys()]
         return labels, defect_values
 
     # ------------------------------------------------------------------
     # Defect by type (horizontal bar chart)
     # ------------------------------------------------------------------
-    def _get_defect_per_tipe(self, month_labels):
+    def _get_defect_per_tipe(self, start_date, end_date):
         """Return defect counts & percentages grouped by tipe_defect
-        for the months represented by *month_labels*.
-
-        If month_labels is empty we fall back to all-time data.
+        for the selected month-year period.
         """
-        if not month_labels:
-            where_clause = ""
-            params = ()
-        else:
-            # Derive date range from the first and last month in month_labels.
-            # month_labels are like ['Jan','Feb','Mar','Apr'] but without year.
-            # We use the latest *distinct* months that exist in produksi_harian
-            # that match the number of labels.
-            distinct_months_q = """
-                SELECT DISTINCT DATE_TRUNC('month', tanggal) AS bulan
-                FROM produksi_harian
-                ORDER BY bulan DESC
-                LIMIT %s
-            """
-            dm_rows = self.db.execute_query(distinct_months_q, (len(month_labels),))
-            if not dm_rows:
-                where_clause = ""
-                params = ()
-            else:
-                dm_rows = list(reversed(dm_rows))
-                start = dm_rows[0]["bulan"]
-                end = dm_rows[-1]["bulan"] + relativedelta(months=1, days=-1)
-                where_clause = "WHERE ph.tanggal >= %s AND ph.tanggal <= %s"
-                params = (start, end)
-
         query = f"""
             SELECT 
                 td.nama_defect AS tipe,
-                COALESCE(SUM(dd.jumlah_defect), 0) AS jumlah
+                COALESCE(
+                    SUM(
+                        CASE
+                            WHEN ph.produksi_id IS NOT NULL THEN dd.jumlah_defect
+                            ELSE 0
+                        END
+                    ),
+                    0
+                ) AS jumlah
             FROM tipe_defect td
             LEFT JOIN detail_defect dd ON td.defect_id = dd.defect_id
             LEFT JOIN produksi_harian ph ON dd.produksi_id = ph.produksi_id
-            {where_clause}
+                AND ph.tanggal >= %s
+                AND ph.tanggal <= %s
             GROUP BY td.defect_id, td.nama_defect
             ORDER BY jumlah DESC
         """
-        rows = self.db.execute_query(query, params)
+        rows = self.db.execute_query(query, (start_date, end_date))
 
         types = []
         counts = []
@@ -178,37 +137,16 @@ class DefectService:
     # ------------------------------------------------------------------
     # Summary helpers
     # ------------------------------------------------------------------
-    def _get_defect_rate(self, month_labels):
+    def _get_defect_rate(self, start_date, end_date):
         """Defect rate = total_defect / total_aktual * 100 for the period."""
-        if not month_labels:
-            where_clause = ""
-            params = ()
-        else:
-            distinct_months_q = """
-                SELECT DISTINCT DATE_TRUNC('month', tanggal) AS bulan
-                FROM produksi_harian
-                ORDER BY bulan DESC
-                LIMIT %s
-            """
-            dm_rows = self.db.execute_query(distinct_months_q, (len(month_labels),))
-            if not dm_rows:
-                where_clause = ""
-                params = ()
-            else:
-                dm_rows = list(reversed(dm_rows))
-                start = dm_rows[0]["bulan"]
-                end = dm_rows[-1]["bulan"] + relativedelta(months=1, days=-1)
-                where_clause = "WHERE tanggal >= %s AND tanggal <= %s"
-                params = (start, end)
-
-        query = f"""
+        query = """
             SELECT 
                 COALESCE(SUM(jumlah_aktual), 0) AS total_aktual,
                 COALESCE(SUM(jumlah_defect), 0) AS total_defect
             FROM produksi_harian
-            {where_clause}
+            WHERE tanggal >= %s AND tanggal <= %s
         """
-        row = self.db.execute_query(query, params)
+        row = self.db.execute_query(query, (start_date, end_date))
         if row:
             total_aktual = int(row[0]["total_aktual"])
             total_defect = int(row[0]["total_defect"])
