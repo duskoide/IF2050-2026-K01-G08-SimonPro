@@ -7,8 +7,7 @@ from PyQt6.QtWidgets import (
     QApplication, QWidget, QLabel, QPushButton,
     QVBoxLayout, QHBoxLayout, QFrame,
     QScrollArea, QGraphicsDropShadowEffect, QLineEdit,
-    QComboBox, QHeaderView, QTableWidget, QTableWidgetItem,
-    QDateEdit
+    QComboBox, QHeaderView, QTableWidget, QTableWidgetItem
 )
 from PyQt6.QtGui import (
     QPainter, QLinearGradient, QColor,
@@ -301,6 +300,7 @@ COMBO_STYLE = """
         font-size: 14px;
         color: #355872;
         background: white;
+        height: 45px;
     }
     QComboBox::drop-down {
         border: none;
@@ -331,23 +331,35 @@ COMBO_STYLE = """
     }
 """
 
-DATE_STYLE = """
-    QDateEdit {
-        border: 1px solid #355872;
-        border-radius: 10px;
-        padding: 0 12px;
-        font-size: 16px;
-        background: white;
-        color: #355872;
-    }
-    QDateEdit::drop-down {
-        border: none;
-        width: 30px;
-    }
-    QDateEdit::down-arrow {
-        image: none;
-    }
-"""
+def make_dropdown(items, placeholder):
+    cb = QComboBox()
+    cb.setEditable(True)
+    cb.lineEdit().setReadOnly(False)
+    cb.setFixedHeight(45)
+    cb.setStyleSheet(COMBO_STYLE)
+    cb.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+
+    cb.addItem("")
+    cb.addItems(items)
+
+    cb.lineEdit().setPlaceholderText(placeholder)
+    cb.completer().setFilterMode(Qt.MatchFlag.MatchContains)
+
+    # Custom down arrow
+    icon_lbl = QLabel(cb)
+    icon_lbl.setPixmap(qta.icon("fa5s.angle-down", color="#355872").pixmap(25, 25))
+    icon_lbl.setStyleSheet("border:none; background:transparent;")
+    icon_lbl.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+
+    original_resize = cb.resizeEvent
+
+    def _reposition(e):
+        icon_lbl.move(cb.width() - 30, (cb.height() - 20) // 2)
+        original_resize(e)
+
+    cb.resizeEvent = _reposition
+    cb.lineEdit().setReadOnly(False)
+    return cb
 
 #Form Card Target Baru
 class FormCard(Card):
@@ -442,30 +454,39 @@ class FormCard(Card):
         row3 = QHBoxLayout()
         row3.setSpacing(20)
 
+        # Periode section dengan 2 dropdown (Bulan & Tahun)
         col_per = QVBoxLayout()
-        col_per.setSpacing(4)
-        col_per.addWidget(make_label("Periode (Bulan/Tahun)"))
+        col_per.setSpacing(10)
+        col_per.addWidget(make_label("Periode"))
 
-        self.inp_date = QDateEdit()
-        self.inp_date.setFixedHeight(40)
-        self.inp_date.setDisplayFormat("MM/yyyy")
-        self.inp_date.setDate(QDate.currentDate())
-        self.inp_date.setCalendarPopup(True)
-        self.inp_date.setStyleSheet(DATE_STYLE)
+        # Dropdown container
+        dropdowns_hbox = QHBoxLayout()
+        dropdowns_hbox.setSpacing(15)
 
-        cal_icon = QLabel(self.inp_date)
-        cal_icon.setPixmap(qta.icon("mdi.calendar-month-outline", color="#355872").pixmap(28, 28))
-        cal_icon.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-        cal_icon.setStyleSheet("""
-            border: none;
-            background: transparent;
-        """)
-        cal_icon.setFixedSize(25, 25)
-        self.inp_date.resizeEvent = lambda e, d=self.inp_date, i=cal_icon: (
-            i.move(d.width() - 40, (d.height() - 20) // 2))
-       
-        col_per.addWidget(self.inp_date)
+        # Bulan dropdown
+        bln_vbox = QVBoxLayout()
+        bln_vbox.setSpacing(4)
+        bln_lbl = QLabel("Bulan")
+        bln_lbl.setStyleSheet("color: #355872; font-size: 16px; font-weight: 500; border:none;")
+        months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", 
+                  "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
+        self.combo_bulan = make_dropdown(months, "Bulan")
+        bln_vbox.addWidget(bln_lbl) 
+        bln_vbox.addWidget(self.combo_bulan)
+        dropdowns_hbox.addLayout(bln_vbox, 1)
 
+        # Tahun dropdown
+        thn_vbox = QVBoxLayout()
+        thn_vbox.setSpacing(4)
+        thn_lbl = QLabel("Tahun")
+        thn_lbl.setStyleSheet("color: #355872; font-size: 16px; font-weight: 500; border:none;")
+        years = [str(i) for i in range(2020, 2031)]
+        self.combo_tahun = make_dropdown(years, "Tahun")
+        thn_vbox.addWidget(thn_lbl)
+        thn_vbox.addWidget(self.combo_tahun)
+        dropdowns_hbox.addLayout(thn_vbox, 1)
+
+        col_per.addLayout(dropdowns_hbox)
         row3.addLayout(col_per, stretch=1)
         col_empty = QVBoxLayout()
         row3.addLayout(col_empty, stretch=1)
@@ -550,21 +571,49 @@ class FormCard(Card):
             valid = False
 
         if valid:
-            d = self.inp_date.date()
-            tahun = d.year()
-            bulan = d.month()
-            self.save_clicked.emit(
-                produk_id,
-                nama_produk,
-                self.inp_kat.text(),
-                int(bul_val),
-                int(har_val),
-                tahun,
-                bulan,
-            )
-            self.combo_produk.setCurrentIndex(0)
-            self.inp_bul.clear()
-            self.inp_har.clear()
+            # Map bulan name to number
+            bulan_map = {
+                "Januari": 1, "Februari": 2, "Maret": 3, "April": 4,
+                "Mei": 5, "Juni": 6, "Juli": 7, "Agustus": 8,
+                "September": 9, "Oktober": 10, "November": 11, "Desember": 12
+            }
+            
+            # Extract values from dropdowns
+            bulan_str = self.combo_bulan.currentText().strip()
+            tahun_str = self.combo_tahun.currentText().strip()
+            
+            # Validate all fields are selected
+            if not bulan_str or not tahun_str:
+                self.err_bul.setText("Periode harus diisi lengkap!")
+                valid = False
+            else:
+                try:
+                    tahun = int(tahun_str)
+                    bulan = bulan_map.get(bulan_str, 0)
+                    
+                    # Validate bulan
+                    if bulan == 0:
+                        self.err_bul.setText("Bulan tidak valid!")
+                        valid = False
+                    else:
+                        if valid:
+                            self.save_clicked.emit(
+                                produk_id,
+                                nama_produk,
+                                self.inp_kat.text(),
+                                int(bul_val),
+                                int(har_val),
+                                tahun,
+                                bulan,
+                            )
+                            self.combo_produk.setCurrentIndex(0)
+                            self.inp_bul.clear()
+                            self.inp_har.clear()
+                            self.combo_bulan.setCurrentIndex(0)
+                            self.combo_tahun.setCurrentIndex(0)
+                except ValueError:
+                    self.err_bul.setText("Tahun harus berupa angka!")
+                    valid = False
 
 #Table Card (Target Saat ini)
 HEADERS = ["Produk", "Kategori", "Periode", "Target Bulanan", "Target Harian"]
@@ -678,6 +727,9 @@ class TargetWindow(GradientBackground):
 
         if not embedded:
             self.setWindowTitle("SiMonPro - Pengaturan Target")
+            self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
+            self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self._drag_pos = None
         self.init_ui()
         self._refresh_table()
 
@@ -762,6 +814,19 @@ class TargetWindow(GradientBackground):
             return
         if self.on_back:
             self.on_back(label)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+            event.accept()
+
+    def mouseMoveEvent(self, event):
+        if event.buttons() == Qt.MouseButton.LeftButton and self._drag_pos:
+            self.move(event.globalPosition().toPoint() - self._drag_pos)
+            event.accept()
+
+    def mouseReleaseEvent(self, event):
+        self._drag_pos = None
 
     def keyPressEvent(self, event):
         if not self.embedded and event.key() == Qt.Key.Key_Escape:

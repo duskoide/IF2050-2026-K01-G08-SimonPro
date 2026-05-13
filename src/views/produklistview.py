@@ -16,6 +16,7 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMenu,
     QPushButton,
     QScrollArea,
     QSizePolicy,
@@ -487,6 +488,26 @@ class Toolbar(QFrame):
 
 class FilterBar(QFrame):
     urutkan_clicked = pyqtSignal()
+    kategori_changed = pyqtSignal(int)
+
+    _MENU_STYLE = """
+        QMenu {
+            border: 1px solid #355872;
+            border-radius: 10px;
+            background: #F7F8F0;
+            padding: 6px;
+        }
+        QMenu::item {
+            padding: 8px 20px 8px 10px;
+            border-radius: 6px;
+            font-size: 14px;
+            color: #355872;
+        }
+        QMenu::item:selected {
+            background-color: #9CD5FF;
+            color: #355872;
+        }
+    """
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -524,8 +545,34 @@ class FilterBar(QFrame):
         self.btn_urutkan = _filter_btn("mdi.sort-ascending", "Urutkan")
         self.btn_urutkan.clicked.connect(self.urutkan_clicked.emit)
         lay.addWidget(self.btn_urutkan)
-        lay.addWidget(_filter_btn("mdi.filter-outline", "Kelompokkan"))
+
+        # Tombol Kelompokkan dengan popup menu
+        self.btn_kelompokkan = _filter_btn("mdi.filter-outline", "Kelompokkan")
+        lay.addWidget(self.btn_kelompokkan)
+
+        # Popup menu untuk kategori (dimunculkan saat klik tombol)
+        self.menu_kategori = QMenu(self.btn_kelompokkan)
+        self.menu_kategori.setStyleSheet(self._MENU_STYLE)
+        self.btn_kelompokkan.setMenu(self.menu_kategori)
+
         lay.addStretch()
+
+    def _show_kategori_menu(self):
+        """Tampilkan popup menu kategori di bawah tombol."""
+        # Posisikan menu tepat di bawah tombol
+        btn_pos = self.btn_kelompokkan.mapToGlobal(self.btn_kelompokkan.rect().bottomLeft())
+        self.menu_kategori.move(btn_pos)
+        self.menu_kategori.show()
+
+    def set_kategori_list(self, kategori_list):
+        """Mengisi popup menu dengan daftar kategori."""
+        self.menu_kategori.clear()
+        for kid, nama in kategori_list:
+            self.menu_kategori.addAction(nama, lambda checked, k=kid: self._on_kategori_selected(k))
+
+    def _on_kategori_selected(self, kategori_id):
+        """Dipanggil ketika user memilih kategori dari menu."""
+        self.kategori_changed.emit(kategori_id)
 
 
 class ProductGrid(QWidget):
@@ -584,6 +631,8 @@ class ProdukWindow(GradientBackground):
         # Inisialisasi service untuk mengambil data produk dari database
         db = get_db()
         self._produk_service = ProdukService(db)
+        self._kategori_controller = KategoriController(session)
+        self._selected_kategori_id = None
 
         if not embedded:
             self.setWindowTitle("SiMonPro - Kelola Data Produk")
@@ -591,12 +640,17 @@ class ProdukWindow(GradientBackground):
         self.init_ui()
         self.load_produk()
 
-    def load_produk(self, query: str | None = None):
+    def load_produk(self, query: str | None = None, kategori_id: int | None = None):
         try:
             if query and query.strip():
                 produk_list = self._produk_service.cari_produk(query.strip())
             else:
                 produk_list = self._produk_service.get_daftar_produk()
+
+            # Filter berdasarkan kategori jika dipilih
+            if kategori_id is not None:
+                produk_list = [p for p in produk_list if p.kategori_id == kategori_id]
+
             if getattr(self, '_sort_descending', False):
                 produk_list.reverse()
             self.product_grid.set_products(produk_list)
@@ -605,11 +659,24 @@ class ProdukWindow(GradientBackground):
 
     def _toggle_sort(self):
         self._sort_descending = not getattr(self, '_sort_descending', False)
-        self.load_produk()
+        self.load_produk(kategori_id=self._selected_kategori_id)
+
+    def _load_kategori_options(self):
+        """Memuat daftar kategori dari database ke dropdown."""
+        try:
+            kategori_list = self._kategori_controller.get_all_kategori()
+            self.filter_bar.set_kategori_list(kategori_list)
+        except Exception as e:
+            print(f"[ProdukWindow] Gagal memuat kategori: {e}")
+
+    def _on_kategori_changed(self, kategori_id):
+        """Dipanggil ketika user memilih kategori dari dropdown."""
+        self._selected_kategori_id = kategori_id
+        self.load_produk(kategori_id=kategori_id)
 
     def _on_search_changed(self, text: str):
         """Pencarian realtime saat user mengetik di search box."""
-        self.load_produk(query=text)
+        self.load_produk(query=text, kategori_id=self._selected_kategori_id)
 
     def init_ui(self):
         root = QHBoxLayout(self)
@@ -644,6 +711,8 @@ class ProdukWindow(GradientBackground):
         sticky_lay.addWidget(self.toolbar)
         self.filter_bar = FilterBar()
         self.filter_bar.urutkan_clicked.connect(self._toggle_sort)
+        self.filter_bar.kategori_changed.connect(self._on_kategori_changed)
+        self._load_kategori_options()
         sticky_lay.addWidget(self.filter_bar)
         c_lay.addWidget(sticky)
 
@@ -681,6 +750,7 @@ class ProdukWindow(GradientBackground):
         controller.request_edit_kategori()
         if dialog.exec():
             self.load_produk()
+            self._load_kategori_options()
 
     def _on_tambah_produk(self):
         kode_produk = "Akan tergenerate otomatis"
