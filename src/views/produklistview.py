@@ -204,8 +204,9 @@ class Sidebar(QFrame):
     logout_clicked = pyqtSignal()
     menu_changed = pyqtSignal(str)
 
-    def __init__(self, parent=None):
+    def __init__(self, user=None, parent=None):
         super().__init__(parent)
+        self.user = user
         self.setFixedWidth(230)
         self.setStyleSheet("QFrame { background:#355872; border:none; }")
         self._menu_btns = {}
@@ -250,11 +251,7 @@ class Sidebar(QFrame):
         for icon_name, label in self.MENU:
             btn = self._menu_btn(icon_name, label)
             self._menu_btns[label] = btn
-            btn.mousePressEvent = lambda event, lbl=label: (
-                self.menu_changed.emit(lbl)
-                if event.button() == Qt.MouseButton.LeftButton
-                else None
-            )
+            btn.mousePressEvent = self._make_menu_handler(label)
             lay.addWidget(btn)
             lay.addSpacing(6)
 
@@ -276,6 +273,8 @@ class Sidebar(QFrame):
             icon_name = next(
                 (i for i, label_text in self.MENU if label_text == lbl), None
             )
+            is_restricted = self.user and self.user.role == "owner" and lbl in ["Target", "Input Produksi"]
+            
             if lbl == label:
                 btn.setStyleSheet(self.ACTIVE_STYLE)
                 ico_color = "#355872"
@@ -283,9 +282,14 @@ class Sidebar(QFrame):
                 txt_weight = "700"
             else:
                 btn.setStyleSheet(self.INACTIVE_STYLE)
-                ico_color = "#F7F8F0"
-                txt_color = "#F7F8F0"
+                if is_restricted:
+                    ico_color = "rgba(247, 248, 240, 0.4)"
+                    txt_color = "rgba(247, 248, 240, 0.4)"
+                else:
+                    ico_color = "#F7F8F0"
+                    txt_color = "#F7F8F0"
                 txt_weight = "600"
+                
             row_lay = btn.layout()
             ico_lbl = row_lay.itemAt(0).widget()
             txt_lbl = row_lay.itemAt(1).widget()
@@ -302,8 +306,15 @@ class Sidebar(QFrame):
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         btn.setStyleSheet(self.INACTIVE_STYLE)
 
-        ico_color = "#F7F8F0"
-        txt_color = "#F7F8F0"
+        is_restricted = self.user and self.user.role == "owner" and label in ["Target", "Input Produksi"]
+        
+        if is_restricted:
+            ico_color = "rgba(247, 248, 240, 0.4)"
+            txt_color = "rgba(247, 248, 240, 0.4)"
+        else:
+            ico_color = "#F7F8F0"
+            txt_color = "#F7F8F0"
+        
         txt_weight = "600"
 
         row = QHBoxLayout(btn)
@@ -326,6 +337,18 @@ class Sidebar(QFrame):
         row.addStretch()
 
         return btn
+
+    def _make_menu_handler(self, label):
+        def handler(event):
+            if event.button() == Qt.MouseButton.LeftButton:
+                if self.user and self.user.role == "owner" and label in ["Target", "Input Produksi"]:
+                    from src.views.ownerview import OwnerPopup
+                    popup = OwnerPopup(self.parent())
+                    popup.show_message("Owner tidak memiliki akses untuk menu ini!")
+                    popup.exec()
+                    return
+                self.menu_changed.emit(label)
+        return handler
 
 
 class Topbar(QFrame):
@@ -618,7 +641,7 @@ class ProdukWindow(GradientBackground):
 
         # Sidebar hanya dirender saat jendela mandiri
         if not self.embedded:
-            sidebar = Sidebar()
+            sidebar = Sidebar(user=self.user)
             if self.on_logout:
                 sidebar.logout_clicked.connect(self.on_logout)
             sidebar.menu_changed.connect(self.navigate_to)
@@ -667,6 +690,13 @@ class ProdukWindow(GradientBackground):
         root.addWidget(content)
 
     def _on_edit_kategori(self):
+        if self.user and self.user.role == "owner":
+            from src.views.ownerview import OwnerPopup
+            popup = OwnerPopup(self)
+            popup.show_message("Owner tidak memiliki akses untuk mengedit kategori!")
+            popup.exec()
+            return
+
         if not self.session:
             return
 
@@ -683,6 +713,13 @@ class ProdukWindow(GradientBackground):
             self.load_produk()
 
     def _on_tambah_produk(self):
+        if self.user and self.user.role == "owner":
+            from src.views.ownerview import OwnerPopup
+            popup = OwnerPopup(self)
+            popup.show_message("Owner tidak memiliki akses untuk menambah produk!")
+            popup.exec()
+            return
+
         kode_produk = "Akan tergenerate otomatis"
         kategori_list = []
         try:
@@ -703,6 +740,13 @@ class ProdukWindow(GradientBackground):
             self.load_produk()
 
     def _on_edit_produk(self, produk: Produk):
+        if self.user and self.user.role == "owner":
+            from src.views.ownerview import OwnerPopup
+            popup = OwnerPopup(self)
+            popup.show_message("Owner tidak memiliki akses untuk mengedit produk!")
+            popup.exec()
+            return
+
         if not produk:
             return
 
@@ -715,8 +759,6 @@ class ProdukWindow(GradientBackground):
         dialog = EditProdukDialog(
             produk=produk,
             categories=kategori_list,
-            user=self.user,
-            session=self.session,
             parent=self
         )
         if dialog.exec():

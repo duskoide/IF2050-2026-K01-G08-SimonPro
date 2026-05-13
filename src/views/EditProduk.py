@@ -648,31 +648,3 @@ if __name__ == "__main__":
     dialog.exec()
 
     sys.exit(app.exec())
-r_combo(self, combo: QComboBox, err_lbl: QLabel):
-        if combo.currentIndex() != 0:
-            combo.setStyleSheet(self._COMBO_SS)
-            err_lbl.setVisible(False)
-
-    def _clear_error_frame(self, frame: QFrame, err_lbl: QLabel):
-        frame.setStyleSheet(self._FRAME_NORMAL_SS)
-        err_lbl.setVisible(False)
-
-    def get_selected_image_relpath(self) -> str | None:
-        if self._selected_image_path:
-            return save_image_to_app(self._selected_image_path)
-        if self.produk and self.produk.gambar:
-            return self.produk.gambar
-        return None
-
-
-# ── Entry Point ────────────────────────────────────────────────────────────────
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    app.setStyle("Fusion")
-
-    dialog = EditProdukDialog(
-        categories=["Atasan", "Bawahan", "Pakaian Dalam"]
-    )
-    dialog.exec()
-
-    sys.exit(app.exec())
