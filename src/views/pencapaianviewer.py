@@ -758,9 +758,6 @@ class PencapaianWindow(GradientBackground):
         self.controller.set_viewer(self)
         if not embedded:
             self.setWindowTitle("SiMonPro - Pencapaian Produksi")
-            self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
-            self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self._drag_pos = None
         self.init_ui()
         self.load_data()
 
@@ -857,19 +854,6 @@ class PencapaianWindow(GradientBackground):
             return
         if self.on_back:
             self.on_back(label)
-
-    def mousePressEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton:
-            self._drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
-            event.accept()
-
-    def mouseMoveEvent(self, event):
-        if event.buttons() == Qt.MouseButton.LeftButton and self._drag_pos:
-            self.move(event.globalPosition().toPoint() - self._drag_pos)
-            event.accept()
-
-    def mouseReleaseEvent(self, event):
-        self._drag_pos = None
 
     def keyPressEvent(self, event):
         if not self.embedded and event.key() == Qt.Key.Key_Escape:

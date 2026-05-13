@@ -332,7 +332,6 @@ class Topbar(QFrame):
     def __init__(self, user=None, parent=None):
         super().__init__(parent)
         self.user = user
-        self._drag_pos = None
         self.setFixedHeight(70)
         self.setStyleSheet("background:transparent; border:none;")
 
@@ -371,22 +370,6 @@ class Topbar(QFrame):
         lay.addWidget(user_ico)
         lay.addSpacing(3)
         lay.addWidget(info_col)
-
-    def mousePressEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton:
-            self._drag_pos = (
-                event.globalPosition().toPoint()
-                - self.window().frameGeometry().topLeft()
-            )
-            event.accept()
-
-    def mouseMoveEvent(self, event):
-        if event.buttons() == Qt.MouseButton.LeftButton and self._drag_pos:
-            self.window().move(event.globalPosition().toPoint() - self._drag_pos)
-            event.accept()
-
-    def mouseReleaseEvent(self, event):
-        self._drag_pos = None
 
 
 class SearchBar(QFrame):
@@ -597,7 +580,6 @@ class ProdukWindow(GradientBackground):
         self.session = session
         self.on_logout = on_logout
         self.embedded = embedded
-        self._drag_pos = None
 
         # Inisialisasi service untuk mengambil data produk dari database
         db = get_db()
@@ -605,8 +587,6 @@ class ProdukWindow(GradientBackground):
 
         if not embedded:
             self.setWindowTitle("SiMonPro - Kelola Data Produk")
-            self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
-            self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 
         self.init_ui()
         self.load_produk()
