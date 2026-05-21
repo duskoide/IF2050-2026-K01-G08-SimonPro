@@ -17,6 +17,7 @@ from PyQt6.QtCore import Qt, QSize, QDate, QEvent, pyqtSignal
 import qtawesome as qta
 
 from src.controllers.LaporanController import LaporanController
+from src.views.messageview import SuccessPopup
 
 #Background
 class GradientBackground(QWidget):
@@ -389,7 +390,7 @@ class LaporanCard(Card):
         lay.addLayout(date_row)
  
         # Generate button — centered
-        self.btn = QPushButton(" Generate Laporan")
+        self.btn = QPushButton(" Download ")
         self.btn.setIcon(qta.icon("mdi.file-document-outline", color="#355872"))
         self.btn.setIconSize(QSize(28, 28))
         self.btn.setFixedHeight(45)
@@ -512,27 +513,32 @@ class LaporanCard(Card):
                 output_dir=output_dir,
             )
 
+            # Cek parent window untuk notifikasi kustom
+            parent_window = self.window()
+            has_custom_notify = hasattr(parent_window, "tampilkan_sukses") and hasattr(parent_window, "tampilkan_error")
+
             if result.get("success"):
-                QMessageBox.information(
-                    self,
-                    "Laporan berhasil",
-                    f"Laporan berhasil dibuat:\n{result.get('filepath')}",
-                )
+                msg = f"Laporan berhasil dibuat:\n{result.get('filepath')}"
+                if has_custom_notify:
+                    parent_window.tampilkan_sukses(msg)
+                else:
+                    QMessageBox.information(self, "Laporan berhasil", msg)
             else:
-                QMessageBox.warning(
-                    self,
-                    "Laporan gagal",
-                    result.get("message", "Laporan gagal dibuat."),
-                )
+                msg = result.get("message", "Laporan gagal dibuat.")
+                if has_custom_notify:
+                    parent_window.tampilkan_error(msg)
+                else:
+                    QMessageBox.warning(self, "Laporan gagal", msg)
         except Exception as exc:
-            QMessageBox.critical(
-                self,
-                "Laporan gagal",
-                f"Terjadi kesalahan saat membuat laporan:\n{exc}",
-            )
+            msg = f"Terjadi kesalahan saat membuat laporan:\n{exc}"
+            parent_window = self.window()
+            if hasattr(parent_window, "tampilkan_error"):
+                parent_window.tampilkan_error(msg)
+            else:
+                QMessageBox.critical(self, "Laporan gagal", msg)
         finally:
             self.btn.setEnabled(True)
-            self.btn.setText(" Generate Laporan")
+            self.btn.setText(" Download ")
 
 # Main Window
 class LaporanWindow(GradientBackground):
@@ -546,6 +552,19 @@ class LaporanWindow(GradientBackground):
         if not embedded:
             self.setWindowTitle("SiMonPro - Laporan")
         self.init_ui()
+        self.success_popup = SuccessPopup(self)
+
+    def tampilkan_sukses(self, pesan):
+        self.success_popup.show_message(pesan, duration_ms=5000)
+
+    def tampilkan_error(self, pesan):
+        self.success_popup.show_message(
+            pesan,
+            bg_color="#FFE5E5",
+            text_color="#B3261E",
+            icon_color="#B3261E",
+            duration_ms=5000
+        )
  
     def init_ui(self):
         root = QHBoxLayout(self)

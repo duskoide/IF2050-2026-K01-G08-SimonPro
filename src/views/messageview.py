@@ -13,7 +13,8 @@ from PyQt6.QtWidgets import (QApplication, QGraphicsDropShadowEffect,
 
 # Success Popup Widget 
 class SuccessPopup(QWidget):
-    WIDTH   = 320
+    MIN_WIDTH = 320
+    MAX_WIDTH = 500
     HEIGHT  = 60
     RADIUS  = 16
     BG      = "#99F9D7"
@@ -26,7 +27,9 @@ class SuccessPopup(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
 
-        self.setFixedSize(self.WIDTH, self.HEIGHT)
+        self.setMinimumWidth(self.MIN_WIDTH)
+        self.setMaximumWidth(self.MAX_WIDTH)
+        self.setFixedHeight(self.HEIGHT)
         
         self.bg_color = "#99F9D7"
         self.text_color = "#2D6A55"
@@ -35,34 +38,36 @@ class SuccessPopup(QWidget):
         self._init_ui()
         self._init_timer()
         self._init_animation()
+        self.hide()
 
     # Build UI 
     def _init_ui(self):
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(18, 0, 12, 0)
+        layout.setContentsMargins(18, 5, 12, 5)
         layout.setSpacing(12)
 
         # Teks pesan
-        self.lbl_message = QLabel("produk berhasil disimpan")
+        self.lbl_message = QLabel("")
+        self.lbl_message.setWordWrap(True)
         self.lbl_message.setStyleSheet(f"""
             QLabel {{
                 color: {self.text_color};
-                font-size: 22px;
+                font-size: 16px;
                 font-weight: 600;
                 background: transparent;
                 border: none;
             }}
         """)
-        self.lbl_message.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+        self.lbl_message.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
 
         # Icon 
         self.lbl_icon = QLabel()
         icon_pixmap = qta.icon(
             "fa5s.check-circle",
             color=self.icon_color
-        ).pixmap(28, 28)
+        ).pixmap(24, 24)
         self.lbl_icon.setPixmap(icon_pixmap)
-        self.lbl_icon.setFixedSize(32, 32)
+        self.lbl_icon.setFixedSize(28, 28)
         self.lbl_icon.setStyleSheet(
             "background: transparent; border: none;"
         )
@@ -79,7 +84,7 @@ class SuccessPopup(QWidget):
         self.lbl_message.setStyleSheet(f"""
             QLabel {{
                 color: {self.text_color};
-                font-size: 20px;
+                font-size: 16px;
                 font-weight: 600;
                 background: transparent;
                 border: none;
@@ -90,7 +95,7 @@ class SuccessPopup(QWidget):
         icon_pixmap = qta.icon(
             "fa5s.check-circle",
             color=self.icon_color
-        ).pixmap(28, 28)
+        ).pixmap(24, 24)
 
         self.lbl_icon.setPixmap(icon_pixmap)
 
@@ -105,7 +110,7 @@ class SuccessPopup(QWidget):
     # ── Fade Animation ──────────────────────────────────────────────────────
     def _init_animation(self):
         self._opacity_effect = QGraphicsOpacityEffect(self)
-        self._opacity_effect.setOpacity(1.0)
+        self._opacity_effect.setOpacity(0.0)
         self.setGraphicsEffect(self._opacity_effect)
         self._anim = QPropertyAnimation(self._opacity_effect, b"opacity")
         self._anim.setDuration(300)
@@ -134,10 +139,9 @@ class SuccessPopup(QWidget):
             QBrush(QColor(self.bg_color))
         )
     # Public API 
-    # def show_message(self, message: str = "produk berhasil disimpan", duration_ms: int = 3000):
     def show_message(
         self, 
-        message: str = "produk berhasil disimpan", 
+        message: str = "", 
         bg_color: str = "#99F9D7",
         text_color: str = "#2D6A55",
         icon_color: str = "#2D6A55",
@@ -152,6 +156,16 @@ class SuccessPopup(QWidget):
         self.icon_color = icon_color
         self._refresh_styles()
         
+        # Adjust size based on content
+        self.adjustSize()
+        if self.width() < self.MIN_WIDTH:
+            self.setFixedWidth(self.MIN_WIDTH)
+        elif self.width() > self.MAX_WIDTH:
+            self.setFixedWidth(self.MAX_WIDTH)
+            self.adjustSize() # Recalculate height for wrapped text
+        else:
+            self.setFixedWidth(self.width())
+            
         self.update()
         self._opacity_effect.setOpacity(0.0)
         self.show()
@@ -180,14 +194,14 @@ class SuccessPopup(QWidget):
         margin = 20
         parent_widget = self.parent() if self.parent() else None
         if parent_widget:
-            x = parent_widget.width() - self.WIDTH - margin
-            y = parent_widget.height() - self.HEIGHT - margin
+            x = parent_widget.width() - self.width() - margin
+            y = parent_widget.height() - self.height() - margin
             self.move(x, y)
             return
 
         screen = QApplication.primaryScreen().availableGeometry()
-        x = screen.width() - self.WIDTH - margin
-        y = screen.height() - self.HEIGHT - margin
+        x = screen.width() - self.width() - margin
+        y = screen.height() - self.height() - margin
         self.move(x, y)
 
 

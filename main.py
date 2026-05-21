@@ -38,6 +38,7 @@ def main() -> int:
             on_logout=lambda: on_logout(session)
         )
         dashboard_window.showMaximized()
+        dashboard_window.tampilkan_sukses("Login berhasil!")
         login_window.hide()
 
     def on_logout(session):

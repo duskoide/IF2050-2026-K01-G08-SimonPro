@@ -40,7 +40,7 @@ class LaporanService:
             return {
                 "success": False,
                 "filepath": None,
-                "message": "Tidak ada data produksi pada periode yang dipilih.",
+                "message": "Tidak ada data yang bisa dilaporkan!",
                 "data": None,
             }
 

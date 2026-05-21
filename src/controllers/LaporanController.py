@@ -55,7 +55,7 @@ class LaporanController:
             return {
                 "success": False,
                 "html": None,
-                "message": "Tidak ada data produksi pada periode yang dipilih.",
+                "message": "Tidak ada data yang bisa dilaporkan!",
             }
 
         return {

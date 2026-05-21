@@ -4,7 +4,7 @@ import os
 os.environ['QT_API'] = 'pyqt6'
 
 from PyQt6.QtWidgets import (
-    QApplication, QDialog, QVBoxLayout,
+    QApplication, QDialog, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QGraphicsDropShadowEffect
 )
 
@@ -20,7 +20,6 @@ import qtawesome as qta
 # ── Gradient Base ──────────────────────────────────────────────────────────────
 class GradientDialog(QDialog):
     RADIUS = 16
-    
     GRADIENT_STOPS = [
         (0.00, "#F7F8F0"),
         (0.30, "#EEF4F6"),
@@ -40,21 +39,20 @@ class GradientDialog(QDialog):
 
         painter.setClipPath(path)
 
-        gradient = QLinearGradient(
-            0, 0,
-            self.width(), self.height()
-        )
-
+        gradient = QLinearGradient(0, 0, self.width(), self.height())
         for pos, hex_color in self.GRADIENT_STOPS:
             gradient.setColorAt(pos, QColor(hex_color))
 
         painter.fillRect(self.rect(), QBrush(gradient))
 
 
-# ── Owner Popup ────────────────────────────────────────────────────────────────
-class OwnerPopup(GradientDialog):
+# ── Target Popup ───────────────────────────────────────────────────────────────
+class TargetPopup(GradientDialog):
+    OVERWRITE = 1
+    BATALKAN  = 0
+
     WIDTH  = 670
-    HEIGHT = 250
+    HEIGHT = 220
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -70,7 +68,7 @@ class OwnerPopup(GradientDialog):
         self._init_shadow()
         self._center()
 
-    # ── Build UI ─────────────────────────────────────────────────────────────
+    # ── Build UI ──────────────────────────────────────────────────────────────
     def _init_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(48, 36, 48, 36)
@@ -78,7 +76,7 @@ class OwnerPopup(GradientDialog):
 
         # ── Teks Pesan ───────────────────────────────────────────────────────
         self.lbl_message = QLabel(
-            "Owner tidak memiliki akses untuk mengedit!"
+            "Target untuk periode ini sudah diatur!"
         )
         self.lbl_message.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.lbl_message.setWordWrap(True)
@@ -95,15 +93,19 @@ class OwnerPopup(GradientDialog):
 
         layout.addWidget(self.lbl_message, stretch=1)
 
-        # ── Tombol OK ────────────────────────────────────────────────────────
-        self.btn_ok = QPushButton("OK")
-        self.btn_ok.setFixedSize(140, 44)
-        self.btn_ok.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_ok.setStyleSheet("""
+        # ── Tombol ───────────────────────────────────────────────────────────
+        btn_layout = QHBoxLayout()
+        btn_layout.setSpacing(16)
+
+        # Overwrite Button
+        self.btn_overwrite = QPushButton("Overwrite")
+        self.btn_overwrite.setFixedSize(140, 44)
+        self.btn_overwrite.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_overwrite.setStyleSheet("""
             QPushButton {
                 background-color: #9CD5FF;
                 color: #355872;
-                font-size: 15px;
+                font-size: 18px;
                 font-weight: 700;
                 border: 1.3px solid #355872;
                 border-radius: 14px;
@@ -117,12 +119,45 @@ class OwnerPopup(GradientDialog):
                 background-color: #7DC4F5;
             }
         """)
-        self.btn_ok.clicked.connect(self.accept)
-
-        layout.addWidget(
-            self.btn_ok,
-            alignment=Qt.AlignmentFlag.AlignHCenter
+        self.btn_overwrite.clicked.connect(
+            lambda: self.done(self.OVERWRITE)
         )
+
+        # Batalkan Button
+        self.btn_batalkan = QPushButton("  Batalkan")
+        self.btn_batalkan.setFixedSize(140, 44)
+        self.btn_batalkan.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_batalkan.setIcon(
+            qta.icon("fa5s.times", color="#355872")
+        )
+        self.btn_batalkan.setStyleSheet("""
+            QPushButton {
+                background-color: #FF8B8B;
+                color: #355872;
+                font-size: 18px;
+                font-weight: 700;
+                border: 1.3px solid #355872;
+                border-radius: 14px;
+            }
+
+            QPushButton:hover {
+                background-color: #FFB1B1;
+            }
+
+            QPushButton:pressed {
+                background-color: #F06060;
+            }
+        """)
+        self.btn_batalkan.clicked.connect(
+            lambda: self.done(self.BATALKAN)
+        )
+
+        btn_layout.addStretch()
+        btn_layout.addWidget(self.btn_overwrite)
+        btn_layout.addWidget(self.btn_batalkan)
+        btn_layout.addStretch()
+
+        layout.addLayout(btn_layout)
 
     # ── Drop Shadow ───────────────────────────────────────────────────────────
     def _init_shadow(self):
@@ -134,20 +169,33 @@ class OwnerPopup(GradientDialog):
 
     # ── Centering ─────────────────────────────────────────────────────────────
     def _center(self):
+        # Gunakan window() untuk mendapatkan jendela utama (top-level) agar posisi center akurat
+        target_geo = None
         if self.parent():
-            # Mengambil window utama dari parent agar posisi global akurat
-            parent_window = self.parent().window()
-            pr = parent_window.geometry()
-            x  = pr.x() + (pr.width()  - self.WIDTH)  // 2
-            y  = pr.y() + (pr.height() - self.HEIGHT) // 2
+            target_geo = self.parent().window().geometry()
         else:
-            screen = QApplication.primaryScreen().availableGeometry()
-            x = (screen.width()  - self.WIDTH)  // 2
-            y = (screen.height() - self.HEIGHT) // 2
-        self.move(x, y)
+            target_geo = QApplication.primaryScreen().availableGeometry()
+
+        if target_geo:
+            x = target_geo.x() + (target_geo.width() - self.WIDTH) // 2
+            y = target_geo.y() + (target_geo.height() - self.HEIGHT) // 2
+            self.move(x, y)
 
     # ── Public API ─────────────────────────────────────────────────────────────
     def show_message(self, message: str):
+        """
+        Ubah teks pesan sebelum ditampilkan.
+
+        Contoh pemanggilan dari halaman lain:
+            popup = TargetPopup(parent=self)
+            popup.show_message("Target untuk periode ini sudah diatur!")
+            result = popup.exec()
+
+            if result == TargetPopup.OVERWRITE:
+                # lanjut overwrite data
+            elif result == TargetPopup.BATALKAN:
+                # batalkan aksi
+        """
         self.lbl_message.setText(message)
 
 
@@ -157,8 +205,13 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
 
-    popup = OwnerPopup()
-    popup.show_message("Owner tidak memiliki akses untuk mengedit!")
-    popup.exec()
+    popup = TargetPopup()
+    popup.show_message("Target untuk periode ini sudah diatur!")
+    result = popup.exec()
+
+    if result == TargetPopup.OVERWRITE:
+        print("User memilih: Overwrite")
+    else:
+        print("User memilih: Batalkan")
 
     sys.exit(0)

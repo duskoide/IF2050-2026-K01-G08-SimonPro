@@ -84,7 +84,7 @@ class TargetProduksi:
             (produk_id, periode, tanggal_mulai, tanggal_selesai),
         )
         if existing:
-            db.execute_query(
+            db.execute_update(
                 "UPDATE target_produksi SET jumlah_target = %s WHERE target_id = %s",
                 (jumlah_target, existing[0]["target_id"]),
             )

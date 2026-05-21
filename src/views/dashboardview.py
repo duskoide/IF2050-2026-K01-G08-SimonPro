@@ -35,6 +35,7 @@ from src.views.pencapaianviewer import PencapaianWindow
 from src.views.defectviewer import DefectWindow
 from src.views.produksiviewer import InputProduksiWindow
 from src.views.laporanviewer import LaporanWindow
+from src.views.messageview import SuccessPopup
 
 
 # Background radial gradient
@@ -730,7 +731,11 @@ class DashboardWindow(GradientBackground):
         self.dashboard_service = DashboardService()
         self.setWindowTitle("SiMonPro - Dashboard")
         self.init_ui()
+        self.success_popup = SuccessPopup(self)
         self.load_data()
+
+    def tampilkan_sukses(self, pesan):
+        self.success_popup.show_message(pesan, duration_ms=5000)
 
     def init_ui(self):
         from src.views.produklistview import ProdukWindow

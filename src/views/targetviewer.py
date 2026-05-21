@@ -22,6 +22,7 @@ from calendar import monthrange
 from src.database.db_connection import get_db
 from src.controllers.TargetController import TargetController
 from src.views.messageview import SuccessPopup
+from src.views.OverwriteTarget import TargetPopup
 
 # Background linear gradient
 class GradientBackground(QWidget):
@@ -779,11 +780,20 @@ class TargetWindow(GradientBackground):
             self.table_card.set_targets(target_list)
 
     def _on_save_target(self, produk_id, nama_produk, nama_kategori, target_bulanan, target_harian, tahun, bulan):
+        # Cek apakah target sudah ada
+        if self._controller.check_target_exists(produk_id, tahun, bulan):
+            popup = TargetPopup(parent=self)
+            popup.show_message(f"Target untuk '{nama_produk}' pada periode tersebut sudah ada!")
+            result = popup.exec()
+            
+            if result == TargetPopup.BATALKAN:
+                return
+
         if self._controller.submit_save_target(produk_id, target_bulanan, target_harian, tahun, bulan):
             self._refresh_table()
 
     def tampilkan_sukses(self, pesan):
-        self.success_popup.show_message(pesan)
+        self.success_popup.show_message(pesan, duration_ms=5000)
 
     def tampilkan_error(self, pesan):
         # Gunakan popup yang sama tapi dengan warna error
@@ -791,7 +801,8 @@ class TargetWindow(GradientBackground):
             pesan,
             bg_color="#FFE5E5",
             text_color="#B3261E",
-            icon_color="#B3261E"
+            icon_color="#B3261E",
+            duration_ms=5000
         )
 
     def init_ui(self):
@@ -820,7 +831,7 @@ class TargetWindow(GradientBackground):
         inner = QWidget()
         inner.setStyleSheet("background: transparent;")
         inner_lay = QVBoxLayout(inner)
-        inner_lay.setContentsMargins(28, 16, 28, 28)
+        inner_lay.setContentsMargins(28, 20, 28, 28)
         inner_lay.setSpacing(18)
         self.table_card = TableCard()
         produk_list = self._load_products()

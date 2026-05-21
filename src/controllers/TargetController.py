@@ -71,8 +71,15 @@ class TargetController:
             self._target_service.save_target(
                 produk_id, target_bulanan, target_harian, tahun, bulan
             )
-            self._notify_sukses("Target berhasil disimpan.")
+            self._notify_sukses("Target telah berhasil disimpan.")
             return True
         except Exception as e:
             self._notify_error(f"Gagal menyimpan target: {e}")
+            return False
+
+    def check_target_exists(self, produk_id: int, tahun: int, bulan: int) -> bool:
+        """Memeriksa keberadaan target via service."""
+        try:
+            return self._target_service.check_target_exists(produk_id, tahun, bulan)
+        except Exception:
             return False

@@ -61,3 +61,14 @@ class TargetService:
         TargetProduksi.upsert(
             self._db, produk_id, "harian", tanggal_mulai, tanggal_selesai, target_harian
         )
+
+    def check_target_exists(self, produk_id: int, tahun: int, bulan: int) -> bool:
+        """Memeriksa apakah target sudah ada untuk produk dan periode tertentu."""
+        tanggal_mulai = date(tahun, bulan, 1)
+        hari_terakhir = monthrange(tahun, bulan)[1]
+        tanggal_selesai = date(tahun, bulan, hari_terakhir)
+        
+        target_bulanan = TargetProduksi.getTargetBulanan(self._db, produk_id, tanggal_mulai, tanggal_selesai)
+        target_harian = TargetProduksi.getTargetHarian(self._db, produk_id, tanggal_mulai, tanggal_selesai)
+        
+        return target_bulanan is not None or target_harian is not None
