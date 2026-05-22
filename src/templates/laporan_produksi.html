@@ -192,6 +192,38 @@
             font-size: 8.5pt; color: #6b7280;
         }
 
+        /* ===== Charts ===== */
+        .chart-container {
+            width: 100%;
+            margin: 10px 0 20px 0;
+            text-align: center;
+        }
+        .chart-container img {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+        }
+        .chart-grid {
+            display: flex;
+            gap: 14px;
+            margin-bottom: 20px;
+        }
+        .chart-grid .chart-box {
+            flex: 1;
+            background: #f8fafc;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 12px;
+        }
+        .chart-title {
+            font-size: 10pt;
+            font-weight: 700;
+            color: #4b5563;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+
         /* ===== Footer ===== */
         .footer {
             margin-top: 28px;
@@ -277,6 +309,22 @@
     </tfoot>
 </table>
 
+<!-- CHARTS PENCAPAIAN -->
+<div class="chart-grid">
+    <div class="chart-box">
+        <div class="chart-title">Tren Target vs Aktual Produksi</div>
+        <div class="chart-container">
+            <img src="{{chart_pencapaian_trend}}" alt="Tren Pencapaian">
+        </div>
+    </div>
+    <div class="chart-box">
+        <div class="chart-title">Proporsi Produksi per Produk</div>
+        <div class="chart-container">
+            <img src="{{chart_pencapaian_dist}}" alt="Distribusi Produk">
+        </div>
+    </div>
+</div>
+
 <!-- DISTRIBUSI PRODUKSI -->
 <div style="font-size: 10pt; font-weight: 700; color: #4b5563; margin-bottom: 8px;">
     Distribusi Produksi per Produk
@@ -339,6 +387,22 @@
     </tfoot>
 </table>
 
+<!-- CHARTS DEFECT -->
+<div class="chart-grid">
+    <div class="chart-box">
+        <div class="chart-title">Tren Tingkat Defect</div>
+        <div class="chart-container">
+            <img src="{{chart_defect_trend}}" alt="Tren Defect">
+        </div>
+    </div>
+    <div class="chart-box">
+        <div class="chart-title">Distribusi Defect per Tipe</div>
+        <div class="chart-container">
+            <img src="{{chart_defect_dist}}" alt="Distribusi Defect">
+        </div>
+    </div>
+</div>
+
 <!-- BREAKDOWN DEFECT PER TIPE -->
 <div style="font-size: 10pt; font-weight: 700; color: #4b5563; margin-bottom: 8px;">
     Breakdown Defect per Tipe
@@ -354,6 +418,22 @@
     </thead>
     <tbody>
         {{defect_type_rows}}
+    </tbody>
+</table>
+
+<!-- KENDALA PRODUKSI -->
+<div class="section-title"><span class="dot"></span> Kendala Produksi</div>
+<table>
+    <thead>
+        <tr>
+            <th style="width: 15%;">Tanggal</th>
+            <th style="width: 20%;">Produk</th>
+            <th>Detail Kendala</th>
+            <th style="width: 15%;">PJ</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{kendala_rows}}
     </tbody>
 </table>
 
