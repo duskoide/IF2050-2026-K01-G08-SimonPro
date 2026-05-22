@@ -4,10 +4,18 @@ from __future__ import annotations
 
 import locale
 import os
+import io
+import base64
 from datetime import date, datetime
 from typing import Any
 
+import matplotlib.pyplot as plt
+import numpy as np
 from src.database.db_connection import get_db
+
+# Use non-interactive backend for report generation
+import matplotlib
+matplotlib.use('Agg')
 
 # sesuaiin lagih path HTML
 _TEMPLATE_PATH = os.path.join(
@@ -471,6 +479,24 @@ class LaporanService:
         </tr>"""
         html = html.replace("{{defect_type_rows}}", defect_type_rows)
 
+        # ── Charts ─────────────────────────────────────────────────────
+        html = html.replace(
+            "{{chart_pencapaian_trend}}", 
+            self._create_bar_pencapaian(data["pencapaian_bulanan"])
+        )
+        html = html.replace(
+            "{{chart_pencapaian_dist}}", 
+            self._create_pie_distribusi(data["pencapaian_produk"])
+        )
+        html = html.replace(
+            "{{chart_defect_trend}}", 
+            self._create_line_defect(data["defect_bulanan"])
+        )
+        html = html.replace(
+            "{{chart_defect_dist}}", 
+            self._create_hbar_defect(data["defect_tipe"])
+        )
+
         # ── Tabel kendala produksi ──────────────────────────────────────
         kendala_rows = ""
         if not data["kendala_list"]:
@@ -645,3 +671,96 @@ class LaporanService:
             "Juli", "Agustus", "September", "Oktober", "November", "Desember",
         ]
         return f"{_BULAN_ID[d.month]} {d.year}"
+
+    # ------------------------------------------------------------------
+    # Chart Generators (Static Images)
+    # ------------------------------------------------------------------
+
+    def _plt_to_base64(self) -> str:
+        """Konversi plot matplotlib saat ini ke string base64."""
+        buf = io.BytesIO()
+        plt.savefig(buf, format="png", dpi=120, bbox_inches="tight")
+        plt.close()
+        buf.seek(0)
+        img_str = base64.b64encode(buf.read()).decode("utf-8")
+        return f"data:image/png;base64,{img_str}"
+
+    def _create_bar_pencapaian(self, pencapaian_bulanan: list[dict]) -> str:
+        """Grafik batang Target vs Aktual."""
+        if not pencapaian_bulanan: return ""
+        
+        labels = [item["periode"] for item in pencapaian_bulanan]
+        target = [item["target"] for item in pencapaian_bulanan]
+        aktual = [item["aktual"] for item in pencapaian_bulanan]
+        
+        plt.figure(figsize=(5, 3))
+        x = np.arange(len(labels))
+        width = 0.35
+        
+        plt.bar(x - width/2, target, width, label='Target', color='#9CD5FF', alpha=0.8)
+        plt.bar(x + width/2, aktual, width, label='Aktual', color='#355872')
+        
+        plt.xticks(x, labels, fontsize=8)
+        plt.yticks(fontsize=8)
+        plt.legend(fontsize=8, frameon=False)
+        plt.grid(axis='y', linestyle='--', alpha=0.3)
+        plt.gca().spines['top'].set_visible(False)
+        plt.gca().spines['right'].set_visible(False)
+        
+        return self._plt_to_base64()
+
+    def _create_pie_distribusi(self, pencapaian_produk: list[dict]) -> str:
+        """Grafik lingkaran distribusi produksi per produk."""
+        if not pencapaian_produk: return ""
+        
+        labels = [item["nama_produk"] for item in pencapaian_produk]
+        sizes  = [item["aktual"] for item in pencapaian_produk]
+        colors = ['#355872', '#5A88A8', '#7AAACE', '#9CD5FF', '#BFE5FF']
+        
+        plt.figure(figsize=(4, 3))
+        plt.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=140, 
+                colors=colors[:len(labels)], textprops={'fontsize': 8},
+                wedgeprops={'edgecolor': 'white', 'linewidth': 1})
+        plt.axis('equal')
+        
+        return self._plt_to_base64()
+
+    def _create_line_defect(self, defect_bulanan: list[dict]) -> str:
+        """Grafik garis tren tingkat defect."""
+        if not defect_bulanan: return ""
+        
+        labels = [item["periode"] for item in defect_bulanan]
+        vals   = [item["pct_defect"] for item in defect_bulanan]
+        
+        plt.figure(figsize=(5, 3))
+        plt.plot(labels, vals, marker='o', color='#355872', linewidth=2, markersize=6)
+        plt.fill_between(labels, vals, color='#355872', alpha=0.1)
+        
+        plt.xticks(fontsize=8)
+        plt.yticks(fontsize=8)
+        plt.ylabel("% Defect", fontsize=8)
+        plt.grid(linestyle='--', alpha=0.3)
+        plt.gca().spines['top'].set_visible(False)
+        plt.gca().spines['right'].set_visible(False)
+        
+        return self._plt_to_base64()
+
+    def _create_hbar_defect(self, defect_tipe: list[dict]) -> str:
+        """Grafik batang horizontal defect per tipe."""
+        if not defect_tipe: return ""
+        
+        labels = [item["nama_defect"] for item in defect_tipe]
+        counts = [item["jumlah"] for item in defect_tipe]
+        
+        plt.figure(figsize=(4, 3))
+        y = np.arange(len(labels))
+        plt.barh(y, counts, color='#9CD5FF', alpha=0.9)
+        plt.yticks(y, labels, fontsize=8)
+        plt.xticks(fontsize=8)
+        plt.xlabel("Jumlah Unit", fontsize=8)
+        plt.gca().invert_yaxis()
+        plt.gca().spines['top'].set_visible(False)
+        plt.gca().spines['right'].set_visible(False)
+        plt.grid(axis='x', linestyle='--', alpha=0.3)
+        
+        return self._plt_to_base64()
