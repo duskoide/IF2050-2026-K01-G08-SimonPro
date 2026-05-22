@@ -1,5 +1,6 @@
 import sys
 import os
+from datetime import date
 
 os.environ['QT_API'] = 'pyqt6'
 
@@ -7,7 +8,7 @@ from PyQt6.QtWidgets import (
     QApplication, QWidget, QLabel, QPushButton,
     QVBoxLayout, QHBoxLayout, QFrame, QSizePolicy,
     QScrollArea, QGraphicsDropShadowEffect, QLineEdit,
-    QComboBox, QDateEdit, QListView
+    QComboBox, QDateEdit, QListView, QMessageBox
 )
 from PyQt6.QtGui import (
     QPainter, QLinearGradient, QColor,
@@ -17,6 +18,7 @@ from PyQt6.QtCore import Qt, QSize, QDate, QEvent, pyqtSignal
 import qtawesome as qta
 from src.database.db_connection import get_db
 from src.services.ProdukService import ProdukService
+from src.services.ProduksiService import ProduksiService
 
 #Background
 class GradientBackground(QWidget):
@@ -504,6 +506,7 @@ class FormCard(Card):
         produks = produk_svc.get_daftar_produk()
         
         self.product_category_map = {p.nama_produk: p.nama_kategori for p in produks}
+        self.product_id_map = {p.nama_produk: p.produk_id for p in produks}
 
         lay = QVBoxLayout(self)
         lay.setContentsMargins(24, 20, 24, 20)
@@ -656,10 +659,11 @@ class DefectCard(Card):
 
 # Bottom Buttons
 class BottomBar(QFrame):
-    def __init__(self, parent=None, form_card=None, defect_card=None):
+    def __init__(self, parent=None, form_card=None, defect_card=None, user=None):
         super().__init__(parent)
         self.form_card = form_card
         self.defect_card = defect_card
+        self.user = user
         self.setStyleSheet("background: transparent; border: none;")
         lay = QHBoxLayout(self)
         lay.setContentsMargins(0, 0, 30, 0)
@@ -777,6 +781,10 @@ class BottomBar(QFrame):
             self.form_card.combo_produk.setStyleSheet(COMBO_ERROR_STYLE)
             self.form_card.err_produk.setText("Nama produk wajib diisi")
             is_valid = False
+        elif self.form_card.combo_produk.currentText().strip() not in self.form_card.product_id_map:
+            self.form_card.combo_produk.setStyleSheet(COMBO_ERROR_STYLE)
+            self.form_card.err_produk.setText("Produk tidak ditemukan")
+            is_valid = False
 
         # 3. Validasi Jumlah Produksi
         self.form_card.inp_jml.setStyleSheet(INPUT_STYLE)
@@ -791,8 +799,33 @@ class BottomBar(QFrame):
         if not is_valid:
             return
 
-        # Success logic placeholder
-        print("Data saved successfully!")
+        detail_defect = []
+        if self.defect_card:
+            for index, row in enumerate(self.defect_card.defect_rows, start=1):
+                jumlah_defect_text = row.inp_jml.text().strip()
+                jumlah_defect = int(jumlah_defect_text) if jumlah_defect_text else 0
+                detail_defect.append({
+                    "defect_id": index,
+                    "jumlah_defect": jumlah_defect,
+                })
+
+        produk_id = self.form_card.product_id_map[self.form_card.combo_produk.currentText().strip()]
+        penanggung_jawab = getattr(self.user, "username", None) or "Admin"
+        service = ProduksiService()
+        success, message, _produksi_id = service.inputProduksiHarian(
+            tanggal=date(y, m, d),
+            produk_id=produk_id,
+            jumlah_aktual=int(jml_val),
+            penanggung_jawab=penanggung_jawab,
+            kendala_produksi=None,
+            detail_defect=detail_defect,
+        )
+
+        if success:
+            QMessageBox.information(self, "Berhasil", message)
+            self.reset_form()
+        else:
+            QMessageBox.warning(self, "Gagal", message)
 
     def reset_form(self):
         if not self.form_card: return
@@ -874,7 +907,11 @@ class InputProduksiWindow(GradientBackground):
         
         self.form_card = FormCard()
         self.defect_card = DefectCard()
-        self.bottom_bar = BottomBar(form_card=self.form_card, defect_card=self.defect_card)
+        self.bottom_bar = BottomBar(
+            form_card=self.form_card,
+            defect_card=self.defect_card,
+            user=self.user,
+        )
         
         inner_lay.addWidget(self.form_card)
         inner_lay.addWidget(self.defect_card)
