@@ -298,3 +298,13 @@ Aplikasi ini telah mengimplementasikan seluruh poin bonus yang diminta dalam spe
   - **Linting**: Pengecekan kualitas kode otomatis dengan `Ruff`.
   - **Testing**: Menjalankan seluruh test suite pada setiap Pull Request dan Push ke branch utama.
   - **Delivery**: Otomatis membuat paket rilis (`.zip`) dan checksum (`.sha256`) setiap kali ada tag versi baru (`v*`).
+
+## Changes
+### 1. UI
+- pop up berhasil login
+- fitur target produk
+- HTML untuk template laporan
+
+### 2 Logic
+- fitur edit produk
+- fitur target produk
