@@ -38,6 +38,16 @@ class KategoriController:
 
     # Tambah Kategori
     def submit_tambah_kategori(self, nama):
+        if self.session is None or not self.session.is_active:
+            if self.viewer:
+                self.viewer.tampilkan_error("User belum login.")
+            return False
+
+        if self.session.get_user_role() == "owner":
+            if self.viewer:
+                self.viewer.tampilkan_error("Owner tidak memiliki akses.")
+            return False
+
         if not self.service.tambahKategori(nama):
             if self.viewer:
                 self.viewer.tampilkan_error("Gagal menambah kategori.")
@@ -49,6 +59,16 @@ class KategoriController:
 
     # Update Kategori
     def submit_update_kategori(self, kategori_id, nama_baru):
+        if self.session is None or not self.session.is_active:
+            if self.viewer:
+                self.viewer.tampilkan_error("User belum login.")
+            return False
+
+        if self.session.get_user_role() == "owner":
+            if self.viewer:
+                self.viewer.tampilkan_error("Owner tidak memiliki akses.")
+            return False
+
         if not self.service.updateKategori(kategori_id, nama_baru):
             if self.viewer:
                 self.viewer.tampilkan_error("Gagal mengubah kategori.")
@@ -60,6 +80,16 @@ class KategoriController:
 
     # Hapus Kategori
     def submit_hapus_kategori(self, kategori_id):
+        if self.session is None or not self.session.is_active:
+            if self.viewer:
+                self.viewer.tampilkan_error("User belum login.")
+            return False
+
+        if self.session.get_user_role() == "owner":
+            if self.viewer:
+                self.viewer.tampilkan_error("Owner tidak memiliki akses.")
+            return False
+
         if not self.service.hapusKategori(kategori_id):
             if self.viewer:
                 self.viewer.tampilkan_error("Kategori tidak bisa dihapus karena masih memiliki produk.")

@@ -61,10 +61,34 @@ class Sidebar(QFrame):
         ("mdi.file-document-outline", "Laporan", True),
     ]
 
-    def __init__(self, parent=None):
+    ACTIVE_STYLE = """
+        QFrame#menuBtn {
+            background: #9CD5FF;
+            border-radius: 10px;
+            border: none;
+        }
+    """
+    INACTIVE_STYLE = """
+        QFrame#menuBtn {
+            background: transparent;
+            border: none;
+        }
+        QFrame#menuBtn:hover {
+            background: rgba(156,213,255,0.12);
+            border-radius: 10px;
+        }
+    """
+
+    logout_clicked = pyqtSignal()
+    menu_changed = pyqtSignal(str)
+    menu_clicked = pyqtSignal(str)
+
+    def __init__(self, user=None, parent=None):
         super().__init__(parent)
+        self.user = user
         self.setFixedWidth(230)
-        self.setStyleSheet(f"QFrame {{ background:{"#355872"}; border:none; }}")
+        self.setStyleSheet("QFrame { background:#355872; border:none; }")
+        self._menu_btns = {}
 
         lay = QVBoxLayout(self)
         lay.setContentsMargins(18, 10, 18, 10)
@@ -96,41 +120,88 @@ class Sidebar(QFrame):
         lay.addSpacing(8)
 
         for icon_name, label, active in self.MENU:
-            lay.addWidget(self._menu_btn(icon_name, label, active))
+            btn = self._menu_btn(icon_name, label, active)
+            self._menu_btns[label] = btn
+            btn.mousePressEvent = self._make_menu_handler(label)
+            lay.addWidget(btn)
             lay.addSpacing(6)
+
+        self.set_active("Laporan")
         lay.addStretch()
-        lay.addWidget(self._menu_btn("mdi.logout", "Keluar", False))
+        logout_btn = self._menu_btn("mdi.logout", "Keluar", False)
+        logout_btn.mousePressEvent = self._make_logout_handler()
+        lay.addWidget(logout_btn)
         lay.addSpacing(16)
+
+    def _make_menu_handler(self, label):
+        def handler(event):
+            if event.button() == Qt.MouseButton.LeftButton:
+                if self.user and self.user.role == "owner" and label in ["Target", "Input Produksi"]:
+                    from src.views.ownerview import OwnerPopup
+                    popup = OwnerPopup(self.parent())
+                    popup.show_message("Owner tidak memiliki akses untuk menu ini!")
+                    popup.exec()
+                    return
+                self.menu_changed.emit(label)
+                self.menu_clicked.emit(label)
+        return handler
+
+    def _make_logout_handler(self):
+        def handler(event):
+            if event.button() == Qt.MouseButton.LeftButton:
+                self.logout_clicked.emit()
+        return handler
+
+    def set_active(self, label):
+        for lbl, btn in self._menu_btns.items():
+            icon_name = next(
+                (i for i, label_text, _ in self.MENU if label_text == lbl), None
+            )
+            is_restricted = self.user and self.user.role == "owner" and lbl in ["Target", "Input Produksi"]
+            if lbl == label:
+                btn.setStyleSheet(self.ACTIVE_STYLE)
+                ico_color = "#355872"
+                txt_color = "#355872"
+                txt_weight = "700"
+            else:
+                btn.setStyleSheet(self.INACTIVE_STYLE)
+                if is_restricted:
+                    ico_color = "rgba(247, 248, 240, 0.4)"
+                    txt_color = "rgba(247, 248, 240, 0.4)"
+                else:
+                    ico_color = "#F7F8F0"
+                    txt_color = "#F7F8F0"
+                txt_weight = "600"
+            row_lay = btn.layout()
+            ico_lbl = row_lay.itemAt(0).widget()
+            txt_lbl = row_lay.itemAt(1).widget()
+            if icon_name:
+                ico_lbl.setPixmap(qta.icon(icon_name, color=ico_color).pixmap(24, 24))
+            font_size = "16px" if lbl == "Input Produksi" else "18px"
+            txt_lbl.setStyleSheet(
+                f"color:{txt_color}; font-size:{font_size}; font-weight:{txt_weight}; border:none; background:transparent;"
+            )
 
     def _menu_btn(self, icon_name, label, active):
         btn = QFrame()
+        btn.setObjectName("menuBtn")
         btn.setFixedHeight(44)
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
 
+        is_restricted = self.user and self.user.role == "owner" and label in ["Target", "Input Produksi"]
         if active:
-            btn.setStyleSheet(f"""
-                QFrame {{
-                    background: {"#9CD5FF"};
-                    border-radius: 10px;
-                    border: none;
-                }}
-            """)
+            btn.setStyleSheet(self.ACTIVE_STYLE)
             ico_color  = "#355872"
             txt_color  = "#355872"
-            txt_weight = "700"           
+            txt_weight = "700"
         else:
-            btn.setStyleSheet("""
-                QFrame {
-                    background: transparent;
-                    border: none;
-                }
-                QFrame:hover {
-                    background: rgba(156,213,255,0.12);
-                    border-radius: 10px;
-                }
-            """)
-            ico_color  = "#F7F8F0"
-            txt_color  = "#F7F8F0"
+            btn.setStyleSheet(self.INACTIVE_STYLE)
+            if is_restricted:
+                ico_color = "rgba(247, 248, 240, 0.4)"
+                txt_color = "rgba(247, 248, 240, 0.4)"
+            else:
+                ico_color  = "#F7F8F0"
+                txt_color  = "#F7F8F0"
             txt_weight = "600"
 
         row = QHBoxLayout(btn)
@@ -572,7 +643,7 @@ class LaporanWindow(GradientBackground):
         root.setSpacing(0)
  
         if not self.embedded:
-            self.sidebar = Sidebar()
+            self.sidebar = Sidebar(user=self.user)
             self.sidebar.menu_clicked.connect(self._handle_menu_clicked)
             self.sidebar.menu_changed.connect(self.sidebar.set_active)
             if self.on_logout:

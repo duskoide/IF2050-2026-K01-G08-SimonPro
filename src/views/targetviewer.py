@@ -85,8 +85,9 @@ class Sidebar(QFrame):
     menu_changed = pyqtSignal(str)
     menu_clicked = pyqtSignal(str)
 
-    def __init__(self, parent=None):
+    def __init__(self, user=None, parent=None):
         super().__init__(parent)
+        self.user = user
         self.setFixedWidth(230)
         self.setStyleSheet("QFrame { background:#355872; border:none; }")
         self._menu_btns = {}
@@ -140,6 +141,12 @@ class Sidebar(QFrame):
     def _make_menu_handler(self, label):
         def handler(event):
             if event.button() == Qt.MouseButton.LeftButton:
+                if self.user and self.user.role == "owner" and label in ["Target", "Input Produksi"]:
+                    from src.views.ownerview import OwnerPopup
+                    popup = OwnerPopup(self.parent())
+                    popup.show_message("Owner tidak memiliki akses untuk menu ini!")
+                    popup.exec()
+                    return
                 self.menu_changed.emit(label)
                 self.menu_clicked.emit(label)
         return handler
@@ -155,6 +162,7 @@ class Sidebar(QFrame):
             icon_name = next(
                 (i for i, label_text, _ in self.MENU if label_text == lbl), None
             )
+            is_restricted = self.user and self.user.role == "owner" and lbl in ["Target", "Input Produksi"]
             if lbl == label:
                 btn.setStyleSheet(self.ACTIVE_STYLE)
                 ico_color = "#355872"
@@ -162,8 +170,12 @@ class Sidebar(QFrame):
                 txt_weight = "700"
             else:
                 btn.setStyleSheet(self.INACTIVE_STYLE)
-                ico_color = "#F7F8F0"
-                txt_color = "#F7F8F0"
+                if is_restricted:
+                    ico_color = "rgba(247, 248, 240, 0.4)"
+                    txt_color = "rgba(247, 248, 240, 0.4)"
+                else:
+                    ico_color = "#F7F8F0"
+                    txt_color = "#F7F8F0"
                 txt_weight = "600"
             row_lay = btn.layout()
             ico_lbl = row_lay.itemAt(0).widget()
@@ -181,6 +193,7 @@ class Sidebar(QFrame):
         btn.setFixedHeight(44)
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
 
+        is_restricted = self.user and self.user.role == "owner" and label in ["Target", "Input Produksi"]
         if active:
             btn.setStyleSheet(self.ACTIVE_STYLE)
             ico_color  = "#355872"
@@ -188,8 +201,12 @@ class Sidebar(QFrame):
             txt_weight = "700"
         else:
             btn.setStyleSheet(self.INACTIVE_STYLE)
-            ico_color  = "#F7F8F0"
-            txt_color  = "#F7F8F0"
+            if is_restricted:
+                ico_color = "rgba(247, 248, 240, 0.4)"
+                txt_color = "rgba(247, 248, 240, 0.4)"
+            else:
+                ico_color  = "#F7F8F0"
+                txt_color  = "#F7F8F0"
             txt_weight = "600"
         row = QHBoxLayout(btn)
         row.setContentsMargins(16, 0, 16, 0)
@@ -810,7 +827,7 @@ class TargetWindow(GradientBackground):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
         if not self.embedded:
-            self.sidebar = Sidebar()
+            self.sidebar = Sidebar(user=self.user)
             self.sidebar.menu_changed.connect(self.navigate_to)
             self.sidebar.menu_changed.connect(self.sidebar.set_active)
             self.sidebar.menu_clicked.connect(self._handle_menu_clicked)

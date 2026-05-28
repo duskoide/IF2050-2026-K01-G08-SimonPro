@@ -8,31 +8,20 @@ os.environ["QT_API"] = "pyqt6"
 import qtawesome as qta
 from PyQt6.QtCore import QSize, Qt, pyqtSignal
 from PyQt6.QtGui import QBrush, QColor, QLinearGradient, QPainter, QPixmap
-from PyQt6.QtWidgets import (
-    QApplication,
-    QFrame,
-    QGraphicsDropShadowEffect,
-    QGridLayout,
-    QHBoxLayout,
-    QLabel,
-    QLineEdit,
-    QMenu,
-    QPushButton,
-    QScrollArea,
-    QSizePolicy,
-    QVBoxLayout,
-    QWidget,
-)
+from PyQt6.QtWidgets import (QApplication, QFrame, QGraphicsDropShadowEffect,
+                             QGridLayout, QHBoxLayout, QLabel, QLineEdit,
+                             QMenu, QPushButton, QScrollArea, QSizePolicy,
+                             QVBoxLayout, QWidget)
 
 from src.controllers.KategoriController import KategoriController
-from src.views.KategoriView import EditKategoriDialog
-from src.views.TambahProduk import TambahProdukDialog
-from src.views.EditProduk import EditProdukDialog
 from src.database.db_connection import get_db
+from src.models.Produk import Produk
 from src.services.KategoriService import KategoriService
 from src.services.ProdukService import ProdukService
-from src.models.Produk import Produk
 from src.utils.image_utils import load_product_pixmap
+from src.views.EditProduk import EditProdukDialog
+from src.views.KategoriView import EditKategoriDialog
+from src.views.TambahProduk import TambahProdukDialog
 
 
 class GradientBackground(QWidget):
@@ -833,7 +822,9 @@ class ProdukWindow(GradientBackground):
         dialog = EditProdukDialog(
             produk=produk,
             categories=kategori_list,
-            parent=self
+            parent=self,
+            user=self.user,
+            session=self.session
         )
         if dialog.exec():
             self.load_produk()
